@@ -1,0 +1,30 @@
+# ---- Python / venv ----
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# ---- OS / Editor ----
+.vscode/
+.DS_Store
+
+# ---- Data (do NOT commit private course assets) ----
+data/raw/
+data/processed/
+data/**/*.pdf
+data/**/*.docx
+data/**/*.pptx
+
+# ---- Models & weights (very large) ----
+models/
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+*.gguf
+
+# ---- Training outputs ----
+runs/
+logs/
+wandb/
+outputs/    
