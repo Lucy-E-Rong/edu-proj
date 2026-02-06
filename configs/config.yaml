@@ -1,0 +1,38 @@
+model:
+  base_model_id: "ibm-granite/granite-3.3-2b-instruct"
+  base_model_dir: "models/granite-3.3-2b-instruct"
+  torch_dtype: "bfloat16"
+
+rag:
+  chunk: 512
+  overlap: 50
+  topk: 3
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - up_proj
+    - down_proj
+    - gate_proj
+
+training:
+  lr: 0.0002
+  batch: 1
+  grad_accum: 8
+  epochs: 1
+  max_seq_len: 2048
+
+data:
+  train_file: "data/processed/train.jsonl"
+  eval_file: "data/processed/eval.jsonl"
+
+output:
+  runs_dir: "runs"
+  chroma_dir: "chroma"
+  adapter_subdir: "adapter"

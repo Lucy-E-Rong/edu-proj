@@ -1,30 +1,22 @@
-# ---- Python / venv ----
+# Python
 .venv/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
 
-# ---- OS / Editor ----
+# OS / editor
 .vscode/
 .DS_Store
 
-# ---- Data (do NOT commit private course assets) ----
-data/raw/
-data/processed/
-data/**/*.pdf
-data/**/*.docx
-data/**/*.pptx
-
-# ---- Models & weights (very large) ----
+# Data and artifacts
+data/
+runs/
+chroma/
 models/
+
+# Large model files
 *.safetensors
 *.bin
 *.pt
 *.ckpt
 *.gguf
-
-# ---- Training outputs ----
-runs/
-logs/
-wandb/
-outputs/    
