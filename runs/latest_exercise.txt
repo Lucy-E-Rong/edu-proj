@@ -1,0 +1,37 @@
+# Beginner Phishing Exercise: Email Authentication Check
+
+## Objective:
+This exercise aims to enhance learners' ability to recognize and identify potential phishing attempts by focusing on email authentication signals.
+
+## Scenario:
+You are an IT security analyst at a fictional company, TechSolutions Inc. You receive an email from an unknown sender, "SupportTeam@secure-tech.com," claiming to be from the IT department with a critical issue requiring immediate action. The email includes a link to a supposedly secure login page for account updates.
+
+## Indicators of Phishing:
+
+1. **Suspicious Sender Domain:**
+   - Examine the sender's email address:
+     - Is it from a known, trusted domain?
+     - Does it match the official IT department's domain (e.g., IT.secure-tech.com)?
+     - Are there slight misspellings or variations?
+
+   *Example: The sender's domain is "SupportTeam@secure-tech.com" instead of the expected "IT.secure-tech.com." This is suspicious because of the misspelling and mismatch with the official domain.*
+
+2. **Urgency and Credential Request:**
+   - Does the email create a sense of urgency or panic?
+   - Does it request sensitive information such as usernames, passwords, or financial details?
+   - Are there threats of account suspension or termination if action isn’t taken immediately?
+
+   *Example: The email states, "Your account will be suspended immediately if you do not verify your credentials within the next 24 hours." This creates urgency and asks for sensitive information.*
+
+3. **Mismatched or Shortened Link:**
+   - Hover over the link to view its actual URL.
+   - Does the displayed URL match the text described in the email?
+   - Are there any discrepancies or an unusually short domain?
+
+   *Example: The email contains a link like "https://secure-login.click," but hovering reveals it directs to a generic advertising site or a suspiciously short URL.*
+
+## Expected Answer Quality:
+The learner should be able to identify at least two indicators of phishing from the provided email scenario and explain why each is suspicious.
+
+## Follow-Up Activity:
+Discuss how strengthening email authentication methods (such

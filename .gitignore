@@ -10,7 +10,6 @@ __pycache__/
 
 # Data and artifacts
 data/
-runs/
 chroma/
 models/
 
