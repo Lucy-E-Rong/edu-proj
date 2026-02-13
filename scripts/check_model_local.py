@@ -1,7 +1,7 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
-MODEL_PATH = "models/granite-3.3-2b-instruct"
+MODEL_PATH = "models/granite-3.3-8b-instruct"
 
 tok = AutoTokenizer.from_pretrained(MODEL_PATH)
 model = AutoModelForCausalLM.from_pretrained(

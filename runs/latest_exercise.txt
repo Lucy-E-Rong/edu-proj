@@ -1,37 +1,78 @@
-# Beginner Phishing Exercise: Email Authentication Check
+## Beginner Phishing Quiz
 
-## Objective:
-This exercise aims to enhance learners' ability to recognize and identify potential phishing attempts by focusing on email authentication signals.
+### Objective:
+Recognize common phishing indicators to enhance cybersecurity awareness.
 
-## Scenario:
-You are an IT security analyst at a fictional company, TechSolutions Inc. You receive an email from an unknown sender, "SupportTeam@secure-tech.com," claiming to be from the IT department with a critical issue requiring immediate action. The email includes a link to a supposedly secure login page for account updates.
+### Instructions:
+Read the email scenarios below and identify three signs of a phishing attempt for each.
 
-## Indicators of Phishing:
+---
 
-1. **Suspicious Sender Domain:**
-   - Examine the sender's email address:
-     - Is it from a known, trusted domain?
-     - Does it match the official IT department's domain (e.g., IT.secure-tech.com)?
-     - Are there slight misspellings or variations?
+**Scenario 1:**
 
-   *Example: The sender's domain is "SupportTeam@secure-tech.com" instead of the expected "IT.secure-tech.com." This is suspicious because of the misspelling and mismatch with the official domain.*
+Subject: Urgent: Account Verification Needed
 
-2. **Urgency and Credential Request:**
-   - Does the email create a sense of urgency or panic?
-   - Does it request sensitive information such as usernames, passwords, or financial details?
-   - Are there threats of account suspension or termination if action isn’t taken immediately?
+Dear [Recipient],
 
-   *Example: The email states, "Your account will be suspended immediately if you do not verify your credentials within the next 24 hours." This creates urgency and asks for sensitive information.*
+We have detected unusual activity on your account. To ensure security, please verify your credentials by clicking the link below.
 
-3. **Mismatched or Shortened Link:**
-   - Hover over the link to view its actual URL.
-   - Does the displayed URL match the text described in the email?
-   - Are there any discrepancies or an unusually short domain?
+[Shortened Link]
 
-   *Example: The email contains a link like "https://secure-login.click," but hovering reveals it directs to a generic advertising site or a suspiciously short URL.*
+Failing to do so may lead to account suspension.
 
-## Expected Answer Quality:
-The learner should be able to identify at least two indicators of phishing from the provided email scenario and explain why each is suspicious.
+Best,
+Security Team
 
-## Follow-Up Activity:
-Discuss how strengthening email authentication methods (such
+**Indicators of Phishing:**
+
+- Suspicious sender address or domain (look for slight misspellings or unusual domains).
+- Urgent language creating a sense of panic to prompt immediate action.
+- Shortened or obscured links that hide their true destination.
+
+---
+
+**Scenario 2:**
+
+Subject: Important Tax Documents
+
+Hi [Recipient],
+
+Attached are your tax documents for review. Please open the attachment to access crucial information.
+
+Best,
+Accountant
+
+[Attachment: tax_docs.zip]
+
+**Indicators of Phishing:**
+
+- Unexpected attachment, especially a ZIP file, that could contain malware.
+- Lack of personalization or context, using generic greetings like "Hi" without mentioning specific details.
+- Request to open attachments without providing context or explanation of their content.
+
+---
+
+**Scenario 3:**
+
+Subject: Confirm Your Purchase
+
+Dear Customer,
+
+Thank you for your recent order with us. To confirm your purchase, please click the link below to enter your payment details.
+
+[Link to External Site]
+
+If you didn't place an order, ignore this message.
+
+Sales Team
+
+**Indicators of Phishing:**
+
+- Request for sensitive information (like payment details) via email.
+- Link directs to an external site rather than a secure, known platform.
+- Vague reference to a past order, attempting to create a false sense of familiarity.
+
+---
+
+### Expected Learner Responses:
+For each scenario, learners should identify at least three indicators that suggest phishing attempts. These include recognizing suspicious sender details,

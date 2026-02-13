@@ -1,7 +1,7 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
 import torch
 
-model_path="ibm-granite/granite-3.3-2b-instruct"
+model_path="ibm-granite/granite-3.3-8b-instruct"
 device="cuda"
 model = AutoModelForCausalLM.from_pretrained(
         model_path,

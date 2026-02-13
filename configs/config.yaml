@@ -1,6 +1,6 @@
 model:
-  base_model_id: "ibm-granite/granite-3.3-2b-instruct"
-  base_model_dir: "models/granite-3.3-2b-instruct"
+  base_model_id: "ibm-granite/granite-3.3-8b-instruct"
+  base_model_dir: "models/granite-3.3-8b-instruct"
   torch_dtype: "bfloat16"
 
 rag:

@@ -13,7 +13,7 @@ pip install -r requirements.txt
 
 ## 2) Base model
 The base model is expected locally at:
-- `models/granite-3.3-2b-instruct`
+- `models/granite-3.3-8b-instruct`
 
 No weight download is performed by this scaffold.
 
