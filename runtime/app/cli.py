@@ -1,16 +1,28 @@
 from __future__ import annotations
 
 import argparse
-
+from pathlib import Path
 from core.config import load_config
-from runtime.rag.ingest import ingest_textbook
+from runtime.rag.ingest import  ingest_markdown_corpus, ingest_textbook
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Local educator framework CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("ingest", help="Ingest mock textbook into local ChromaDB")
+    ingest_parser = sub.add_parser("ingest", help="Ingest markdown/text sources into local ChromaDB")
+    ingest_parser.add_argument(
+        "--source-glob",
+        type=str,
+        default="",
+        help="Glob for corpus files, e.g. 'generated_modules/**/*.md'",
+    )
+    ingest_parser.add_argument(
+        "--source-file",
+        type=str,
+        default="",
+        help="Single source file, e.g. 'assets/mock_textbook.txt'",
+    )
 
     ex = sub.add_parser("exercise", help="Generate an exercise")
     ex.add_argument("prompt", type=str, help="Exercise request prompt")
@@ -33,8 +45,18 @@ def main() -> None:
     cfg = load_config("configs/config.yaml")
 
     if args.command == "ingest":
-        count = ingest_textbook(source_path="assets/mock_textbook.txt")
-        print(f"Ingest complete. Chunks indexed: {count}")
+        if args.source_glob:
+            count = ingest_markdown_corpus(source_glob=args.source_glob)
+            print(f"Ingest complete from glob {args.source_glob}. Chunks indexed: {count}")
+        elif args.source_file:
+            count = ingest_textbook(source_path=args.source_file)
+            print(f"Ingest complete from file {args.source_file}. Chunks indexed: {count}")
+        elif Path("generated_modules").exists():
+            count = ingest_markdown_corpus(source_glob="generated_modules/**/*.md")
+            print("Ingest complete from generated_modules/**/*.md. Chunks indexed:", count)
+        else:
+            count = ingest_textbook(source_path="assets/mock_textbook.txt")
+            print(f"Ingest complete. Chunks indexed: {count}")
         return
 
     if args.command == "exercise":

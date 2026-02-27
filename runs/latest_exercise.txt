@@ -1,78 +1,33 @@
-## Beginner Phishing Quiz
+## Beginner Lesson: Command Injection Defense
 
-### Objective:
-Recognize common phishing indicators to enhance cybersecurity awareness.
+### Introduction
 
-### Instructions:
-Read the email scenarios below and identify three signs of a phishing attempt for each.
+Welcome to this introductory lesson on command injection defense. In this lesson, we will explore a critical security vulnerability known as Command Injection (CWE-94) and learn effective strategies to prevent such attacks. We'll use real-world examples to illustrate the risks and best practices for writing secure code.
 
----
+### What is Command Injection?
 
-**Scenario 1:**
+Command Injection is a type of attack where an adversary provides untrusted input that gets incorporated into a system command or shell script. When this input isn't properly sanitized, it may allow the attacker to execute arbitrary commands on the underlying operating system. This vulnerability typically occurs when a program constructs or influences a shell command using user-supplied data without proper validation or context separation.
 
-Subject: Urgent: Account Verification Needed
+### Why Command Injection Matters
 
-Dear [Recipient],
+Command Injection poses a severe threat because it can lead to full system compromise. If an attacker can inject commands, they can execute any system function, access sensitive data, modify critical files, or even escalate privileges. This vulnerability is particularly dangerous in server-side applications that interact with the operating system, such as web applications, scripts, or system utilities.
 
-We have detected unusual activity on your account. To ensure security, please verify your credentials by clicking the link below.
+### Key Concepts
 
-[Shortened Link]
+1. **Treat all input as untrusted**: Always assume user-supplied data can be malicious. Never trust input without validation.
+2. **Avoid constructing shell commands from user input**: Use parameterized queries or safe APIs instead of string concatenation to build commands.
+3. **Validate and sanitize inputs**: Use allowlists to ensure inputs conform to expected formats and discard or escape any unexpected characters.
+4. **Principle of Least Privilege**: Run applications with the minimal permissions necessary to perform their functions, limiting the impact if an attacker gains control.
+5. **Defense in Depth**: Implement multiple layers of security controls to reduce the likelihood and impact of successful attacks.
 
-Failing to do so may lead to account suspension.
+### Lesson Example: Updatebridge Tool
 
-Best,
-Security Team
+Let's consider the vulnerable `updatebridge` tool from our context. This tool intended to map software update URLs to device groups and configure file transfer settings. The mistake occurred in how the bash script processed user-supplied data:
 
-**Indicators of Phishing:**
+```bash
+group = " $1 "  
+timestamp = " $2 " 
+# Vulnerable: attacker-controlled input
+```
 
-- Suspicious sender address or domain (look for slight misspellings or unusual domains).
-- Urgent language creating a sense of panic to prompt immediate action.
-- Shortened or obscured links that hide their true destination.
-
----
-
-**Scenario 2:**
-
-Subject: Important Tax Documents
-
-Hi [Recipient],
-
-Attached are your tax documents for review. Please open the attachment to access crucial information.
-
-Best,
-Accountant
-
-[Attachment: tax_docs.zip]
-
-**Indicators of Phishing:**
-
-- Unexpected attachment, especially a ZIP file, that could contain malware.
-- Lack of personalization or context, using generic greetings like "Hi" without mentioning specific details.
-- Request to open attachments without providing context or explanation of their content.
-
----
-
-**Scenario 3:**
-
-Subject: Confirm Your Purchase
-
-Dear Customer,
-
-Thank you for your recent order with us. To confirm your purchase, please click the link below to enter your payment details.
-
-[Link to External Site]
-
-If you didn't place an order, ignore this message.
-
-Sales Team
-
-**Indicators of Phishing:**
-
-- Request for sensitive information (like payment details) via email.
-- Link directs to an external site rather than a secure, known platform.
-- Vague reference to a past order, attempting to create a false sense of familiarity.
-
----
-
-### Expected Learner Responses:
-For each scenario, learners should identify at least three indicators that suggest phishing attempts. These include recognizing suspicious sender details,
+Here, `$

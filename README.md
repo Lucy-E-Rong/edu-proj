@@ -72,10 +72,20 @@ model:
 ```bash
 python training/data_build/make_mock_data.py
 ```
+Generate training data from real modules:
+```bash
+python training/data_build/make_data_from_modules.py --modules-dir generated_modules
+```
 
 ### 6) Build local RAG index (ingest)
 ```bash
 python -m runtime.app.cli ingest
+```
+If `generated_modules/` exists, `ingest` defaults to `generated_modules/**/*.md`.
+You can also specify an explicit source:
+```bash
+python -m runtime.app.cli ingest --source-glob "generated_modules/**/*.md"
+python -m runtime.app.cli ingest --source-file "assets/mock_textbook.txt"
 ```
 
 ### 7) Run runtime CLI demo
@@ -127,3 +137,30 @@ Artifacts are written under:
 By default, local-heavy artifact folders are treated as non-source outputs:
 - `models/`, `data/`, and `chroma/` are ignored by `.gitignore`.
 - `runs/` should also be treated as generated runtime/training output; this branch may still include selected run artifacts for reference.
+
+## 0227 Update
+
+### What this tool is designed for
+This tool is designed to support local, privacy-preserving cybersecurity education content workflows from end to end. It is meant to help instructors generate course-aligned learning materials,The system can generate content at runtime by integrating search results (not solely relying on model memory), and can train pluggable adapters locally, with the entire process independent of cloud hosting platforms.
+
+### Motivation behind the design
+The core motivation is to avoid a one-size-fits-all black-box generation process. Cybersecurity teaching content often needs strict local control, traceability to source materials, and the ability to adapt output style to course goals. The project therefore separates domain knowledge grounding, model adaptation, and runtime orchestration so each part can be inspected, updated, and reused.
+
+### Enabled features and why they are meaningful
+The runtime pipeline combines orchestrated generation with optional retrieval so outputs can stay aligned with local module data rather than only model priors. Shared-memory orchestration and run artifacts (`report.md`, `trace.jsonl`) make each run auditable for teaching review. The verifier and refinement loop provide a practical quality/safety checkpoint before final output is accepted. On the training side, module-to-JSONL transformation enables structured supervision from David's generated modules, while two-stage LoRA training (general adapter first, then teacher-specific continuation) supports both broad cybersecurity coverage and instructor-level customization without retraining the full base model.
+
+### Changes completed on 2026-02-27 (excluding attribution evaluation additions)
+1. Removed legacy mock assets and mock data generation flow.
+2. Switched ingestion defaults to real corpus usage from `generated_modules`, including directory-based ingestion behavior.
+3. Updated CAG asset loading defaults to non-mock paths and made asset loading tolerant when optional files are absent.
+4. Implemented Stage 1 dataset builder from module corpus:
+   - Added `training/data_build/build_from_modules.py`.
+   - Added structured JSONL generation for `train/eval` with task-oriented `messages`.
+5. Added Stage 1 data documentation:
+   - Added `docs/data_pipeline.md` to document preserved fields, filtered content, and transformation rules.
+6. Implemented Stage 2 two-stage training support:
+   - Extended `training/train_lora.py` with `--mode`, `--init-adapter`, `--train-file`, `--eval-file`.
+   - Added run naming and summary metadata for `general` vs `teacher` stages.
+7. Added Stage 2 training documentation:
+   - Added `docs/model_training_pipeline.md` for General -> Teacher adapter workflow.
+8. Updated README operational steps to align with module-based data preparation, two-stage training, and current CLI behavior.

@@ -5,11 +5,11 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import torch
 from datasets import Dataset
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig, PeftModel, get_peft_model
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -54,23 +54,50 @@ def _tokenize_dataset(ds: Dataset, tokenizer: AutoTokenizer, max_seq_len: int) -
     def _map_fn(example: Dict[str, Any]) -> Dict[str, Any]:
         text = _messages_to_text(tokenizer, example["messages"])
         tokens = tokenizer(text, truncation=True, max_length=max_seq_len)
-        tokens["labels"] = tokens["input_ids"].copy()
+        #tokens["labels"] = tokens["input_ids"].copy()
         return tokens
 
     return ds.map(_map_fn, remove_columns=ds.column_names)
 
 
-def _make_run_dir(cfg: Dict[str, Any]) -> Path:
-    run_id = datetime.now().strftime("%Y%m%d_%H%M%S_train")
+def _make_run_dir(cfg: Dict[str, Any], mode: str) -> Path:
+    run_id = datetime.now().strftime(f"%Y%m%d_%H%M%S_{mode}_train")
     path = Path(cfg["output"]["runs_dir"]) / run_id
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def _resolve_data_files(cfg: Dict[str, Any], train_file: Optional[str], eval_file: Optional[str]) -> tuple[str, str]:
+    resolved_train = train_file or cfg["data"]["train_file"]
+    resolved_eval = eval_file or cfg["data"]["eval_file"]
+    return resolved_train, resolved_eval
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="SFT + LoRA trainer")
     parser.add_argument("--config", default="configs/config.yaml")
     parser.add_argument("--dry-run", action="store_true", help="Load config/model and exit before training")
+    parser.add_argument(
+        "--mode",
+        choices=["general", "teacher"],
+        default="general",
+        help="Training mode label for run metadata and folder naming.",
+    )
+    parser.add_argument(
+        "--init-adapter",
+        default="",
+        help="Optional adapter path to continue training from (for teacher customization stage).",
+    )
+    parser.add_argument(
+        "--train-file",
+        default="",
+        help="Optional override for training JSONL file. Defaults to config data.train_file.",
+    )
+    parser.add_argument(
+        "--eval-file",
+        default="",
+        help="Optional override for eval JSONL file. Defaults to config data.eval_file.",
+    )
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -92,21 +119,34 @@ def main() -> None:
         device_map="auto",
     )
 
-    peft_config = LoraConfig(
-        r=lora_cfg["r"],
-        lora_alpha=lora_cfg["alpha"],
-        lora_dropout=lora_cfg["dropout"],
-        target_modules=lora_cfg["target_modules"],
-        task_type="CAUSAL_LM",
-    )
-    model = get_peft_model(model, peft_config)
+    if args.init_adapter:
+        init_path = Path(args.init_adapter)
+        if not init_path.exists():
+            raise FileNotFoundError(f"Init adapter not found: {args.init_adapter}")
+        model = PeftModel.from_pretrained(
+            model,
+            args.init_adapter,
+            is_trainable=True,
+        )
+    else:
+        peft_config = LoraConfig(
+            r=lora_cfg["r"],
+            lora_alpha=lora_cfg["alpha"],
+            lora_dropout=lora_cfg["dropout"],
+            target_modules=lora_cfg["target_modules"],
+            task_type="CAUSAL_LM",
+        )
+        model = get_peft_model(model, peft_config)
 
     if args.dry_run:
-        print("Dry run complete: config and model loaded successfully.")
+        mode_msg = f"mode={args.mode}"
+        init_msg = f", init_adapter={args.init_adapter}" if args.init_adapter else ""
+        print(f"Dry run complete: config and model loaded successfully ({mode_msg}{init_msg}).")
         return
 
-    train_rows = _read_jsonl(cfg["data"]["train_file"])
-    eval_rows = _read_jsonl(cfg["data"]["eval_file"])
+    train_file, eval_file = _resolve_data_files(cfg, args.train_file or None, args.eval_file or None)
+    train_rows = _read_jsonl(train_file)
+    eval_rows = _read_jsonl(eval_file)
 
     train_ds = Dataset.from_list(train_rows)
     eval_ds = Dataset.from_list(eval_rows) if eval_rows else None
@@ -115,7 +155,7 @@ def main() -> None:
     train_tok = _tokenize_dataset(train_ds, tokenizer, max_seq_len)
     eval_tok = _tokenize_dataset(eval_ds, tokenizer, max_seq_len) if eval_ds is not None else None
 
-    run_dir = _make_run_dir(cfg)
+    run_dir = _make_run_dir(cfg, mode=args.mode)
     adapter_dir = run_dir / cfg["output"]["adapter_subdir"]
     adapter_dir.mkdir(parents=True, exist_ok=True)
 
@@ -146,8 +186,12 @@ def main() -> None:
     model.save_pretrained(adapter_dir)
 
     summary = {
+        "mode": args.mode,
         "base_model_dir": model_cfg["base_model_dir"],
+        "init_adapter": args.init_adapter or None,
         "adapter_dir": str(adapter_dir),
+        "train_file": train_file,
+        "eval_file": eval_file,
         "train_examples": len(train_rows),
         "eval_examples": len(eval_rows),
         "lr": train_cfg["lr"],
