@@ -149,7 +149,7 @@ The core motivation is to avoid a one-size-fits-all black-box generation process
 ### Enabled features and why they are meaningful
 The runtime pipeline combines orchestrated generation with optional retrieval so outputs can stay aligned with local module data rather than only model priors. Shared-memory orchestration and run artifacts (`report.md`, `trace.jsonl`) make each run auditable for teaching review. The verifier and refinement loop provide a practical quality/safety checkpoint before final output is accepted. On the training side, module-to-JSONL transformation enables structured supervision from David's generated modules, while two-stage LoRA training (general adapter first, then teacher-specific continuation) supports both broad cybersecurity coverage and instructor-level customization without retraining the full base model.
 
-### Changes completed on 2026-02-27 (excluding attribution evaluation additions)
+### Changes 
 1. Removed legacy mock assets and mock data generation flow.
 2. Switched ingestion defaults to real corpus usage from `generated_modules`, including directory-based ingestion behavior.
 3. Updated CAG asset loading defaults to non-mock paths and made asset loading tolerant when optional files are absent.
