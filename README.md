@@ -110,6 +110,28 @@ Practical difference:
   actually uses the trained teacher adapter instead of falling back to the base
   model
 
+Training vs inference relationship:
+
+```text
+Training stage
+base model
+  -> train on David modules
+  -> general adapter
+  -> continue training on teacher materials
+  -> teacher adapter
+
+Inference stage
+base model + general adapter = general model behavior
+base model + teacher adapter = teacher-customized model behavior
+```
+
+Important note:
+The teacher adapter is trained by continuing from the general-model path, so
+the training dependency is `base -> general -> teacher`. However, the saved
+teacher adapter is the final teacher-stage adapter, so runtime inference loads
+it directly on top of the base model rather than stacking both the general and
+teacher adapters at the same time.
+
 ## Pipeline Flowchart
 
 ```mermaid
