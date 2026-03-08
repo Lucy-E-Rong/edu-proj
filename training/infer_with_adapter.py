@@ -45,7 +45,7 @@ def main() -> None:
     output = model.generate(
         messages=[{"role": "user", "content": args.prompt}],
         add_generation_prompt=True,
-        max_new_tokens=256,
+        max_new_tokens=1000,
     )
     print(output)
         # Save to file if requested

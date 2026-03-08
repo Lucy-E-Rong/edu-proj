@@ -39,8 +39,8 @@ python training/train_lora.py \
   --mode teacher \
   --config configs/config.yaml \
   --init-adapter runs/<general_run_id>/adapter \
-  --train-file data/teachers/<teacher_id>/train.jsonl \
-  --eval-file data/teachers/<teacher_id>/eval.jsonl
+  --train-file data/teachers/<teacher_id>/processed/train.jsonl \
+  --eval-file data/teachers/<teacher_id>/processed/eval.jsonl
 ```
 
 Output:
