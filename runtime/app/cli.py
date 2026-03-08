@@ -24,16 +24,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Single source file, e.g. 'assets/mock_textbook.txt'",
     )
 
+    def add_model_profile_arg(cmd: argparse.ArgumentParser) -> None:
+        cmd.add_argument(
+            "--model-profile",
+            choices=["base", "general", "teacher"],
+            default="teacher",
+            help="Runtime generator profile: base model only, general adapter, or teacher adapter.",
+        )
+
     ex = sub.add_parser("exercise", help="Generate an exercise")
     ex.add_argument("prompt", type=str, help="Exercise request prompt")
     ex.add_argument("--no-rag", action="store_true", help="Disable RAG retrieval")
+    add_model_profile_arg(ex)
 
     rb = sub.add_parser("rubric", help="Generate rubric for latest/provided exercise")
     rb.add_argument("prompt", type=str, nargs="?", default="", help="Rubric constraints")
     rb.add_argument("--exercise-text", type=str, default="", help="Explicit exercise text")
+    add_model_profile_arg(rb)
 
     fq = sub.add_parser("factual", help="Answer factual question with RAG")
     fq.add_argument("question", type=str)
+    add_model_profile_arg(fq)
 
     return parser
 
@@ -62,7 +73,7 @@ def main() -> None:
     if args.command == "exercise":
         from runtime.workflow.orchestrator import Orchestrator
 
-        orch = Orchestrator(cfg)
+        orch = Orchestrator(cfg, model_profile=args.model_profile)
         result = orch.run(
             task_type="generate_exercise",
             user_prompt=args.prompt,
@@ -71,7 +82,7 @@ def main() -> None:
     elif args.command == "rubric":
         from runtime.workflow.orchestrator import Orchestrator
 
-        orch = Orchestrator(cfg)
+        orch = Orchestrator(cfg, model_profile=args.model_profile)
         result = orch.run(
             task_type="generate_rubric",
             user_prompt=args.prompt,
@@ -81,7 +92,7 @@ def main() -> None:
     elif args.command == "factual":
         from runtime.workflow.orchestrator import Orchestrator
 
-        orch = Orchestrator(cfg)
+        orch = Orchestrator(cfg, model_profile=args.model_profile)
         result = orch.run(
             task_type="factual_question",
             user_prompt=args.question,
@@ -91,6 +102,7 @@ def main() -> None:
         raise ValueError(f"Unknown command: {args.command}")
 
     print(f"run_id={result['run_id']}")
+    print(f"model_profile={result['model_profile']}")
     print(result["output"])
     print(f"verifier={result['verifier']}")
 

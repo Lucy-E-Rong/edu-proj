@@ -3,6 +3,20 @@ model:
   base_model_dir: "models/granite-3.3-8b-instruct"
   torch_dtype: "bfloat16"
 
+runtime:
+  default_model_profile: "teacher"
+  verifier_model_profile: "base"
+  model_profiles:
+    base:
+      adapter_path: null
+      description: "Base Granite instruct model with no LoRA adapter."
+    general:
+      adapter_path: "runs/20260227_194005_general_train/adapter"
+      description: "Base model plus the general cybersecurity teaching adapter."
+    teacher:
+      adapter_path: "runs/20260305_120655_teacher_train/adapter"
+      description: "Base model plus the teacher-customized adapter."
+
 rag:
   chunk: 512
   overlap: 50

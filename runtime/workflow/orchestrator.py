@@ -22,19 +22,47 @@ class SharedMemory:
 
 
 class Orchestrator:
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: Dict[str, Any], model_profile: Optional[str] = None) -> None:
         model_cfg = config["model"]
+        runtime_cfg = config.get("runtime", {})
         self.config = config
+        self.model_profile = model_profile or runtime_cfg.get("default_model_profile", "base")
         self.memory = SharedMemory()
+        generator_settings = self._model_settings_for_profile(self.model_profile)
+        verifier_profile = runtime_cfg.get("verifier_model_profile", "base")
+        verifier_settings = self._model_settings_for_profile(verifier_profile)
+
         self.generator = ChatModel(
-            ModelSettings(
-                model_path=model_cfg["base_model_dir"],
-                torch_dtype=model_cfg.get("torch_dtype", "bfloat16"),
-            )
+            generator_settings
         )
         self.verifier = VerifierLLM(
+            model_path=verifier_settings.model_path,
+            torch_dtype=verifier_settings.torch_dtype,
+            adapter_path=verifier_settings.adapter_path,
+        )
+        self.verifier_profile = verifier_profile
+        self.generator_adapter_path = generator_settings.adapter_path
+        self.verifier_adapter_path = verifier_settings.adapter_path
+
+    def _model_settings_for_profile(self, profile: str) -> ModelSettings:
+        model_cfg = self.config["model"]
+        runtime_cfg = self.config.get("runtime", {})
+        profiles = runtime_cfg.get("model_profiles", {})
+        profile_cfg = profiles.get(profile)
+        if profile_cfg is None:
+            known = ", ".join(sorted(profiles)) or "none"
+            raise ValueError(f"Unknown runtime model profile '{profile}'. Known profiles: {known}")
+
+        adapter_path = profile_cfg.get("adapter_path")
+        if adapter_path:
+            adapter_file = Path(adapter_path)
+            if not adapter_file.exists():
+                raise FileNotFoundError(f"Runtime adapter for profile '{profile}' not found: {adapter_path}")
+
+        return ModelSettings(
             model_path=model_cfg["base_model_dir"],
             torch_dtype=model_cfg.get("torch_dtype", "bfloat16"),
+            adapter_path=adapter_path or None,
         )
 
     def _new_run_dir(self) -> Path:
@@ -74,6 +102,10 @@ class Orchestrator:
         report.write_text(
             "# Run Report\n\n"
             f"- task_type: `{task_type}`\n"
+            f"- generator_model_profile: `{self.model_profile}`\n"
+            f"- generator_adapter_path: `{self.generator_adapter_path or 'none'}`\n"
+            f"- verifier_model_profile: `{self.verifier_profile}`\n"
+            f"- verifier_adapter_path: `{self.verifier_adapter_path or 'none'}`\n"
             f"- rag_topk: `{self.config['rag']['topk']}`\n"
             f"- chunk_size: `{self.config['rag']['chunk']}`\n"
             f"- chunk_overlap: `{self.config['rag']['overlap']}`\n\n"
@@ -135,6 +167,7 @@ class Orchestrator:
             {
                 "stage": "initial",
                 "task_type": task_type,
+                "generator_model_profile": self.model_profile,
                 "prompt": effective_prompt,
                 "output": current_output,
             },
@@ -196,6 +229,7 @@ class Orchestrator:
 
         return {
             "run_id": run_dir.name,
+            "model_profile": self.model_profile,
             "output": current_output,
             "verifier": verifier_result,
             "memory": asdict(self.memory),

@@ -38,22 +38,55 @@ stage, making the workflow more auditable, reusable, and extensible.
 
 ## System Overview
 
-The project has three main layers:
+The project has three main layers, in execution order:
 
-1. Runtime generation
-   - local generation for exercises, rubrics, and factual answers
-   - optional RAG over locally indexed content
-   - verifier and run traces for auditability
-2. General adapter training
+1. General adapter training
    - builds supervised JSONL from David's module corpus
    - trains a LoRA adapter that captures general cybersecurity teaching
      knowledge
-3. Teacher customization
+2. Teacher customization
    - ingests teacher-provided course materials without modifying the originals
    - extracts text blocks
-   - generates teacher-stage JSONL（SLM）
+   - generates teacher-stage JSONL
    - continues training from the general adapter to produce a customized
      teacher adapter
+3. Runtime generation
+   - loads one of three runtime model profiles: `base`, `general`, or
+     `teacher`
+   - generates exercises, rubrics, and factual answers
+   - can add optional RAG over locally indexed content
+   - runs a verifier and writes report/trace artifacts for auditability
+
+## Runtime Model Roles
+
+These terms refer to different layers of the system and should not be treated
+as interchangeable:
+
+- `base model`
+  - the underlying local Granite instruct model from
+    `models/granite-3.3-8b-instruct`
+- `adapter`
+  - LoRA weights trained on top of the base model
+  - `general adapter` captures broad cybersecurity teaching style
+  - `teacher adapter` adds course-specific framing such as SQL-class language
+- `general model`
+  - the base model with the general adapter loaded at inference time
+- `teacher-customized model`
+  - the base model with the teacher adapter loaded at inference time
+  - in this repository, that teacher adapter was produced by continuing from
+    the general adapter during training
+- `orchestrator`
+  - the runtime controller in `runtime/workflow/orchestrator.py`
+  - it does not train or store model weights
+  - it decides how a request is executed: prompt construction, optional RAG,
+    verifier pass, and report/trace writing
+
+Practical difference:
+- the `teacher-customized model` changes what the model has learned
+- the `orchestrator` changes how the application uses a selected model
+- connecting the orchestrator to the teacher profile means the runtime now
+  actually uses the trained teacher adapter instead of falling back to the base
+  model
 
 ## Pipeline Flowchart
 
@@ -72,13 +105,15 @@ flowchart TD
   GADP --> TTRAIN
   TTRAIN --> TADP[Teacher Adapter]
 
+  COURSE[Local Course Files] --> RAGX[Optional RAG Ingest]
+  GADP --> RUNTIME[Runtime Exercise/Rubric/Factual Generation]
+  TADP --> RUNTIME
+  RAGX --> RUNTIME
+  RUNTIME --> PROFILES[Runtime model profile switch: base/general/teacher]
   GADP --> GINF[General Inference]
   TADP --> TINF[Teacher Inference]
   GINF --> COMP[Before/After Comparison]
   TINF --> COMP
-
-  COURSE[Local Course Files] --> RAGX[Optional RAG Ingest]
-  RAGX --> RUNTIME[Runtime Exercise/Rubric/Factual Generation]
 ```
 
 ## Repository Structure
@@ -157,6 +192,23 @@ model:
 
 ## Runtime Workflow
 
+Runtime is downstream from training. Once the base model and any desired
+adapter are available, the CLI can run in one of three model profiles:
+
+- `base`
+  - base model only
+- `general`
+  - base model plus the general adapter
+- `teacher`
+  - base model plus the teacher adapter
+
+Current default:
+- `teacher`
+
+The runtime orchestrator uses the selected profile for generation, while the
+verifier stays on the `base` profile by default. These mappings are configured
+in `configs/config.yaml`.
+
 Build the local RAG index from the generated module corpus:
 
 ```bash
@@ -174,13 +226,22 @@ Run the CLI:
 
 ```bash
 python -m runtime.app.cli exercise "Create a beginner phishing quiz"
-python -m runtime.app.cli rubric "Focus on clarity and correctness"
-python -m runtime.app.cli factual "What is least privilege?"
+python -m runtime.app.cli exercise --model-profile base "Create a beginner phishing quiz"
+python -m runtime.app.cli exercise --model-profile general "Create a beginner phishing quiz"
+python -m runtime.app.cli exercise --model-profile teacher "Create a beginner phishing quiz"
+python -m runtime.app.cli rubric --model-profile teacher "Focus on clarity and correctness"
+python -m runtime.app.cli factual --model-profile teacher "What is least privilege?"
 ```
 
 Runtime artifacts are written under:
 - `runs/<run_id>/report.md`
 - `runs/<run_id>/trace.jsonl`
+
+Each runtime report now records:
+- generator model profile
+- generator adapter path
+- verifier model profile
+- verifier adapter path
 
 ## Stage 1: General Adapter Training
 
@@ -307,6 +368,14 @@ The goal is not to generate new David-style modules. The goal is to make the
 customized adapter generate cybersecurity learning materials that better match
 the structure and language of a database course.
 
+In model-role terms:
+- the `teacher-customized model` is the trained model behavior produced by the
+  teacher continuation stage
+- the runtime `orchestrator` is the application layer that can now select that
+  teacher model through the `teacher` runtime profile
+- supporting three runtime profiles makes it possible to compare `base`,
+  `general`, and `teacher` behavior without changing code
+
 ## Case Study
 
 This repository includes a complete showcase based on an introductory database
@@ -330,8 +399,10 @@ Case-study pipeline:
 2. extract normalized text blocks into `data/teachers/sql101/extracted/`
 3. generate teacher-stage JSONL into `data/teachers/sql101/processed/`
 4. continue training from the general adapter
-5. run the same course-aligned prompt against the general and teacher adapters
-6. compare structure, terminology, and instructional usefulness
+5. select the runtime model profile or direct inference target: `base`,
+   `general`, or `teacher`
+6. run the same course-aligned prompt against the general and teacher adapters
+7. compare structure, terminology, and instructional usefulness
 
 This case study is intended as a concrete showcase of how the pipeline works
 end-to-end, even though output quality can still be improved in later
@@ -385,6 +456,46 @@ This comparison supports the main experimental claim:
 - but the current customization pipeline still needs tighter generation control
   to avoid format drift
 
+## Testing Runtime Profile Switching
+
+1. Confirm the configured adapter paths exist:
+
+```bash
+ls runs/20260227_194005_general_train/adapter
+ls runs/20260305_120655_teacher_train/adapter
+```
+
+2. Run the same prompt through all three profiles:
+
+```bash
+python -m runtime.app.cli exercise --model-profile base "Write a short SQL security classroom exercise."
+python -m runtime.app.cli exercise --model-profile general "Write a short SQL security classroom exercise."
+python -m runtime.app.cli exercise --model-profile teacher "Write a short SQL security classroom exercise."
+```
+
+3. Check the console output:
+- `model_profile=base`
+- `model_profile=general`
+- `model_profile=teacher`
+
+4. Open the newest runtime report under `runs/<run_id>/report.md` and confirm:
+- `generator_model_profile` matches the selected profile
+- `generator_adapter_path` is `none` for `base`
+- `generator_adapter_path` points to the general adapter for `general`
+- `generator_adapter_path` points to the teacher adapter for `teacher`
+
+5. Compare output behavior:
+- `base` should sound like the original Granite instruct model
+- `general` should show broader cybersecurity teaching style
+- `teacher` should align more strongly with the SQL-course framing
+
+6. Test rubric and factual generation the same way if needed:
+
+```bash
+python -m runtime.app.cli rubric --model-profile teacher "Focus on beginner-friendly grading language"
+python -m runtime.app.cli factual --model-profile teacher "What is a parameterized query?"
+```
+
 ## Difference from the Reference Paper
 
 The reference paper appears to use an SLM-based teaching workflow, but it does
@@ -430,4 +541,3 @@ Local-heavy artifact folders are treated as outputs rather than source:
 - `runs/`
 
 Selected run artifacts are kept in this repository for reference and comparison.
-

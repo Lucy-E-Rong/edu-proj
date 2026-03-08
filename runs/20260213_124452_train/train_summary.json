@@ -1,8 +1,0 @@
-{
-  "base_model_dir": "models/granite-3.3-8b-instruct",
-  "adapter_dir": "runs/20260213_124452_train/adapter",
-  "train_examples": 4,
-  "eval_examples": 1,
-  "lr": 0.0002,
-  "epochs": 1
-}

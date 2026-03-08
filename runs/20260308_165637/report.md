@@ -1,0 +1,118 @@
+# Run Report
+
+- task_type: `generate_exercise`
+- generator_model_profile: `base`
+- generator_adapter_path: `none`
+- verifier_model_profile: `base`
+- verifier_adapter_path: `none`
+- rag_topk: `3`
+- chunk_size: `512`
+- chunk_overlap: `50`
+
+## Prompt
+
+```text
+[STYLE GUIDE]
+
+
+[EXAMPLE]
+
+
+[USER PROMPT]
+Write a short SQL security classroom exercise.
+
+[RETRIEVED CONTEXT]
+(1) source=generated_modules/module_003/content.md, chunk_id=0
+- - - title : sql injection through unsafe dictionary expansion lesson - - - this lesson continues the exploration of how untrusted input can influence data access paths and query generation, even when using a robust framework. it shows how unsafe input can steer query construction and undermine protections if internal controls are exposed to the query - building path. security concept : sql injection through unsafe dictionary expansion. this concept fits into the course topic secure data access and query integrity, which examines how inputs flow from the web layer into the data layer and how improper handling can undermine data protection controls. this lesson builds on the broader idea that inputs flow from the web layer into the data layer and that validating, whitelisting, and separating input handling from query construction are essential to maintain deterministic and auditable access controls. # # introduction to the vulnerable program the setting is a fictional internal hr analytics web application written in server - side python. its job is to let staff filter employee records through a web interface by supplying query parameters in http requests. the program assumes that whatever comes from the web layer will be treated as part of the query specification and handed directly to the query builder. in this setup, internal control keys — such as a parameter named _ connector or similar ones — can be exposed to the query construction path. there is no explicit whitelisting or validation to separate legitimate filter fields from internal control parameters. this creates a straightforward path for untrusted input to influence the resulting sql logic. ` ` ` python # vulnerable : direct dictionary unpacking from user input def search _ employees ( request ) : # user - provided query parameters, e. g.,? department = engineering & _ connector = or params = dict ( request. get ) # unvalidated expansion into the query builder results = employee. filter ( * * params ) return results ` ` ` # # exploring an exploit against the vulnerable program the exploit aims to alter how the where clause is assembled by injecting an internal control parameter that the query builder interprets as a logical connector. by supplying a key like _ connector with a crafted value, an attacker can change the intended conjunction of conditions from the safe default ( typically and ) to a broader one ( such as or ). this effectively widens the scope of matching records, potentially bypassing access controls and exposing sensitive employee data. the exploit interacts with the vulnerable program by sending http query parameters that include both legitimate filters and attacker - controlled control parameters, which the program then forwards directly into the query construction path.
+
+(2) source=generated_modules/module_003/CVE-2025-64459.md, chunk_id=4
+[ 6 ] [ 10 ] [ 11 ] [ 13 ]. - * * exploitation complexity * * - low ; proof - of - concept exploits require only basic knowledge of django ’ s filtering mechanics and requests with crafted parameters [ 10 ] [ 11 ]. - public pocs have demonstrated end - to - end exploitation, from exfiltrating sensitive data to bypassing authentication logic [ 10 ] [ 11 ] [ 12 ] [ 13 ]. - * * detection * * - suspicious use of ` _ connector ` or ` _ negated ` in logs or unusual query generation. - database logs showing unexpected logical combinations or where clause manipulation [ 6 ] [ 8 ] [ 10 ] [ 12 ]. # # impact - * * security consequences * * - * * arbitrary sql execution : * * attackers can insert arbitrary sql fragments, altering query logic and extracting, modifying, or bypassing data and access controls [ 3 ] [ 4 ] [ 5 ] [ 10 ] [ 11 ] [ 12 ] [ 13 ]. - * * data exposure and exfiltration : * * sensitive / unpublished records ( users, financial data, application secrets ) may be disclosed [ 5 ] [ 10 ] [ 12 ]. - * * authentication bypass / privilege escalation : * * bypassing business logic or permission checks, leading to unauthorized actions or role escalation [ 4 ] [ 10 ] [ 12 ]. - * * data integrity risks : * * ability to alter, delete, or insert unauthorized data in backend databases [ 6 ] [ 10 ]. - * * regulatory and business impact : * * gdpr, hipaa, pci, and other compliance risks for exposed regulated data. potential for financial penalties, brand damage, and loss of customer trust [ 5 ] [ 12 ]. - * * scope and prevalence * * - affects any django - powered web application that constructs dynamic filters or queries using unvalidated user input — common in dashboards, search interfaces, admin panels [ 3 ] [ 5 ] [ 10 ] [ 12 ]. - the vulnerability impacts both public - facing and internal applications. - * * exploitability * * - rated as * * critical * * ( cvss 3. 1 score : 9. 1 ), network - exploitable, low - complexity, and practical for both manual and automated exploitation [ 3 ] [ 5 ] [ 10 ] [ 12 ]. - * * incident reports * * - no * publicly documented * successful breaches or regulatory actions have been attributed to this
+
+(3) source=generated_modules/module_003/practice.md, chunk_id=0
+- - - title : sql injection via unsafe dynamic query construction practice - - - this practice centers on a common and dangerous pattern : building sql queries by directly concatenating user - provided inputs into the query string, including internal control parameters. by walking through a local, self - contained scenario, you will see how an attacker - controlled parameter such as _ connector can alter the logic of a query and reveal data or bypass filters. the activity reinforces the design principle that all user input must be treated as untrusted, and that queries should be constructed through safe parameterization and strict whitelisting. after exploring the vulnerability, you will apply a safer design that eliminates unvalidated user influence over the query plan and demonstrates how to verify that the vulnerability is no longer present. # # getting started this exercise uses python to host a tiny inventory search api and a separate exploit client that runs on the same machine. the target relies on an in - memory sqlite database to store a small catalog of items. a lightweight web framework is used to expose an endpoint like / items, and the exploit demonstrates how a crafted request can modify the sql logic through an internal control parameter named _ connector. you will implement a safe version of the endpoint using parameterized queries and a whitelisted set of filters, then verify that the exploit no longer changes the semantics of the query. # # # virtual environment a virtual environment creates an isolated python workspace where you can install and manage packages without affecting anything else on your system. it is not required for this practice, but it is strongly recommended because it gives you a clean and consistent setup. using a virtual environment helps avoid conflicts and makes it easier to remove or reset dependencies later. you may continue without one, but adopting virtual environments early is a valuable habit. ` ` ` title = " create a virtual environment " python - m venv. venv ` ` ` ` ` ` title = " activate the virtual environment " # on windows. venv \ scripts \ activate # on macos or linux source. venv / bin / activate ` ` ` ` ` ` title = " deactivate the virtual environment " deactivate ` ` ` # # # install requirements this exercise relies on a tiny web framework and the requests library for the exploit client. sqlite comes bundled with python, so no separate installation is required for the database. install the web framework and the http client library used by the exploit client. ` ` ` bash title =
+
+[CONVERSATION HISTORY]
+No conversation history.
+
+[QUESTION]
+Write a short SQL security classroom exercise.
+```
+
+## Retrieved Chunks
+
+- chunk_id=0 source=generated_modules/module_003/content.md
+
+- - - title : sql injection through unsafe dictionary expansion lesson - - - this lesson continues the exploration of how untrusted input can influence data access paths and query generation, even when using a robust framework. it shows how unsafe input can steer query construction and undermine protections if internal controls are exposed to the query - building path. security concept : sql injection through unsafe dictionary expansion. this concept fits into the course topic secure data access and query integrity, which examines how inputs flow from the web layer into the data layer and how improper handling can undermine data protection controls. this lesson builds on the broader idea that inputs flow from the web layer into the data layer and that validating, whitelisting, and separating input handling from query construction are essential to maintain deterministic and auditable access controls. # # introduction to the vulnerable program the setting is a fictional internal hr analytics web application written in server - side python. its job is to let staff filter employee records through a web interface by supplying query parameters in http requests. the program assumes that whatever comes from the web layer will be treated as part of the query specification and handed directly to the query builder. in this setup, internal control keys — such as a parameter named _ connector or similar ones — can be exposed to the query construction path. there is no explicit whitelisting or validation to separate legitimate filter fields from internal control parameters. this creates a straightforward path for untrusted input to influence the resulting sql logic. ` ` ` python # vulnerable : direct dictionary unpacking from user input def search _ employees ( request ) : # user - provided query parameters, e. g.,? department = engineering & _ connector = or params = dict ( request. get ) # unvalidated expansion into the query builder results = employee. filter ( * * params ) return results ` ` ` # # exploring an exploit against the vulnerable program the exploit aims to alter how the where clause is assembled by injecting an internal control parameter that the query builder interprets as a logical connector. by supplying a key like _ connector with a crafted value, an attacker can change the intended conjunction of conditions from the safe default ( typically and ) to a broader one ( such as or ). this effectively widens the scope of matching records, potentially bypassing access controls and exposing sensitive employee data. the exploit interacts with the vulnerable program by sending http query parameters that include both legitimate filters and attacker - controlled control parameters, which the program then forwards directly into the query construction path.
+
+- chunk_id=4 source=generated_modules/module_003/CVE-2025-64459.md
+
+[ 6 ] [ 10 ] [ 11 ] [ 13 ]. - * * exploitation complexity * * - low ; proof - of - concept exploits require only basic knowledge of django ’ s filtering mechanics and requests with crafted parameters [ 10 ] [ 11 ]. - public pocs have demonstrated end - to - end exploitation, from exfiltrating sensitive data to bypassing authentication logic [ 10 ] [ 11 ] [ 12 ] [ 13 ]. - * * detection * * - suspicious use of ` _ connector ` or ` _ negated ` in logs or unusual query generation. - database logs showing unexpected logical combinations or where clause manipulation [ 6 ] [ 8 ] [ 10 ] [ 12 ]. # # impact - * * security consequences * * - * * arbitrary sql execution : * * attackers can insert arbitrary sql fragments, altering query logic and extracting, modifying, or bypassing data and access controls [ 3 ] [ 4 ] [ 5 ] [ 10 ] [ 11 ] [ 12 ] [ 13 ]. - * * data exposure and exfiltration : * * sensitive / unpublished records ( users, financial data, application secrets ) may be disclosed [ 5 ] [ 10 ] [ 12 ]. - * * authentication bypass / privilege escalation : * * bypassing business logic or permission checks, leading to unauthorized actions or role escalation [ 4 ] [ 10 ] [ 12 ]. - * * data integrity risks : * * ability to alter, delete, or insert unauthorized data in backend databases [ 6 ] [ 10 ]. - * * regulatory and business impact : * * gdpr, hipaa, pci, and other compliance risks for exposed regulated data. potential for financial penalties, brand damage, and loss of customer trust [ 5 ] [ 12 ]. - * * scope and prevalence * * - affects any django - powered web application that constructs dynamic filters or queries using unvalidated user input — common in dashboards, search interfaces, admin panels [ 3 ] [ 5 ] [ 10 ] [ 12 ]. - the vulnerability impacts both public - facing and internal applications. - * * exploitability * * - rated as * * critical * * ( cvss 3. 1 score : 9. 1 ), network - exploitable, low - complexity, and practical for both manual and automated exploitation [ 3 ] [ 5 ] [ 10 ] [ 12 ]. - * * incident reports * * - no * publicly documented * successful breaches or regulatory actions have been attributed to this
+
+- chunk_id=0 source=generated_modules/module_003/practice.md
+
+- - - title : sql injection via unsafe dynamic query construction practice - - - this practice centers on a common and dangerous pattern : building sql queries by directly concatenating user - provided inputs into the query string, including internal control parameters. by walking through a local, self - contained scenario, you will see how an attacker - controlled parameter such as _ connector can alter the logic of a query and reveal data or bypass filters. the activity reinforces the design principle that all user input must be treated as untrusted, and that queries should be constructed through safe parameterization and strict whitelisting. after exploring the vulnerability, you will apply a safer design that eliminates unvalidated user influence over the query plan and demonstrates how to verify that the vulnerability is no longer present. # # getting started this exercise uses python to host a tiny inventory search api and a separate exploit client that runs on the same machine. the target relies on an in - memory sqlite database to store a small catalog of items. a lightweight web framework is used to expose an endpoint like / items, and the exploit demonstrates how a crafted request can modify the sql logic through an internal control parameter named _ connector. you will implement a safe version of the endpoint using parameterized queries and a whitelisted set of filters, then verify that the exploit no longer changes the semantics of the query. # # # virtual environment a virtual environment creates an isolated python workspace where you can install and manage packages without affecting anything else on your system. it is not required for this practice, but it is strongly recommended because it gives you a clean and consistent setup. using a virtual environment helps avoid conflicts and makes it easier to remove or reset dependencies later. you may continue without one, but adopting virtual environments early is a valuable habit. ` ` ` title = " create a virtual environment " python - m venv. venv ` ` ` ` ` ` title = " activate the virtual environment " # on windows. venv \ scripts \ activate # on macos or linux source. venv / bin / activate ` ` ` ` ` ` title = " deactivate the virtual environment " deactivate ` ` ` # # # install requirements this exercise relies on a tiny web framework and the requests library for the exploit client. sqlite comes bundled with python, so no separate installation is required for the database. install the web framework and the http client library used by the exploit client. ` ` ` bash title =
+
+## Output
+
+```text
+## SQL Security Classroom Exercise: Safe Dynamic Query Construction
+
+### Objective
+
+In this exercise, students will learn about the dangers of directly constructing SQL queries from untrusted user input and how to mitigate these risks using parameterized queries and strict whitelisting.
+
+### Scenario
+
+You are tasked with securing an inventory search API that exposes a `/items` endpoint to filter items stored in an in-memory SQLite database. The API currently constructs SQL queries by directly concatenating user-provided inputs, including internal control parameters such as `_connector`.
+
+### Problem
+
+The existing implementation is vulnerable to SQL injection. An attacker could exploit this by crafting a request that alters the intended SQL logic, potentially exposing sensitive data or bypassing filters.
+
+### Steps
+
+1. **Understand the Vulnerability**:
+   - Examine the vulnerable code snippet provided in the context.
+   - Identify how untrusted user input (`_connector` parameter) can manipulate the SQL query.
+
+2. **Set Up the Environment**:
+   - Follow the instructions in the context to create a virtual environment (if choosing to do so).
+   - Install the required packages for the web framework and the `requests` library.
+
+3. **Investigate the Exploit**:
+   - Use the provided exploit client to send a crafted HTTP request that injects malicious SQL logic.
+   - Observe the changes in query execution and the resulting data exposure.
+
+4. **Implement a Safer Design**:
+   - Modify the `/items` endpoint to use parameterized queries.
+   - Implement strict whitelisting to only allow a predefined set of valid filter parameters.
+   - Ensure that internal control parameters like `_connector` do not influence the query construction.
+
+5. **Test the Solution**:
+   - Run the exploit client again with the same malicious input.
+   - Verify that the modified endpoint correctly handles the input and maintains the integrity of the SQL query, preventing any unintended data exposure or alteration of query logic.
+
+### Learning Outcomes
+
+- Understand the risks associated with dynamic SQL query construction from untrusted inputs.
+- Learn how to use parameterized queries to prevent SQL injection.
+- Apply strict whitelisting to control the allowed parameters in SQL queries.
+- Recognize the importance of separating input handling from query construction for secure
+```
+
+## Verifier Result
+
+```json
+{
+  "relevance_pass": true,
+  "safety_pass": true,
+  "reasons": [
+    "The exercise focuses on a critical SQL security concept: preventing SQL injection through unsafe dictionary expansion.",
+    "It provides a clear, educational scenario involving a vulnerable inventory search API, which is relevant for teaching secure data access and query integrity.",
+    "The exercise includes practical steps for students to understand, exploit, and then mitigate the vulnerability, promoting hands-on learning.",
+    "It emphasizes the use of parameterized queries and strict whitelisting, which are industry-standard practices for secure SQL handling.",
+    "The content does not include any harmful, unethical, prejudiced, or negative information and promotes fairness by providing a balanced educational approach."
+  ],
+  "action": "allow"
+}
+```
