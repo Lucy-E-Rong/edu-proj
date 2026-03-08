@@ -36,6 +36,28 @@ particular course. The enabled features are meaningful because they separate
 the broad cybersecurity knowledge stage from the teacher-specific adaptation
 stage, making the workflow more auditable, reusable, and extensible.
 
+Design goal:
+This repository is designed to produce a general cybersecurity education model
+from David's stable module format first, and then let an individual teacher
+customize that model with local course materials. The intended outcome is not
+to regenerate David-style modules, but to generate cybersecurity learning
+content that reflects the target course context.
+
+Motivation:
+David's modules are the general cybersecurity knowledge source, while teacher
+materials are the course customization source. This separation matters because
+the customized model should consider the teacher's material when generating
+content, but it should do so on top of an already learned cybersecurity base
+rather than starting from course material alone.
+
+Feature significance:
+The current feature set is meaningful because it keeps the two adaptation
+stages explicit. The general stage learns cybersecurity concepts, defensive
+teaching patterns, and module-derived content structure. The teacher stage
+then adds course terminology, lecture framing, topic emphasis, and classroom
+practice style, such as database terminology, SQL-focused examples, and
+course-aligned exercises.
+
 ## System Overview
 
 The project has three main layers, in execution order:
@@ -116,6 +138,23 @@ flowchart TD
   TINF --> COMP
 ```
 
+Current workflow and tool roles:
+The workflow starts with David's modules, which are treated as stable-format
+inputs for building the general cybersecurity training dataset. The
+`training/data_build/build_from_modules.py` script transforms these modules
+into supervised JSONL for general LoRA training. Teacher customization is then
+handled separately: `training/data_build/extract_teacher_corpus.py` converts
+teacher files into normalized text blocks, `training/data_build/generate_teacher_jsonl.py`
+turns those blocks into teacher-stage supervision, and
+`training/data_build/validate_teacher_jsonl.py` checks the resulting schema and
+content quality. `training/train_lora.py` is the shared training entry point
+for both the general adapter and the teacher continuation stage. After
+training, `training/infer_with_adapter.py` supports direct adapter testing,
+while the runtime layer uses `runtime/app/cli.py` as the terminal entry point
+and `runtime/workflow/orchestrator.py` as the controller that selects a model
+profile, optionally performs RAG, builds prompts, runs verification, and saves
+execution traces.
+
 ## Repository Structure
 
 - `generated_modules/`
@@ -174,6 +213,7 @@ Create a virtual environment and install dependencies:
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+srun -p gpu-preempt      --gres=gpu:a100:1      --cpus-per-task=8      --mem=64G      -t 2:00:00      --pty bash
 ```
 
 Download the base model locally:
@@ -364,9 +404,13 @@ The current teacher experiment uses:
 - selected lecture topic: querying data
 - security focus: SQL injection prevention
 
-The goal is not to generate new David-style modules. The goal is to make the
-customized adapter generate cybersecurity learning materials that better match
-the structure and language of a database course.
+The goal is to make the customized adapter generate cybersecurity learning
+materials that better match the structure, terminology, and teaching context
+of the selected course. In this case, the teacher-stage model should reflect
+database-course language such as `SELECT`, filtering, parameterized queries,
+joins, and transaction concepts, while also producing course-aligned outputs
+such as lecture notes, topic explanations, and classroom practice questions
+for a database lecture with a security focus.
 
 In model-role terms:
 - the `teacher-customized model` is the trained model behavior produced by the
@@ -386,7 +430,12 @@ Role assumption:
 
 
 Targeted lecture:
-- `Querying Data`
+- source materials:
+  - https://github.com/s-shemmee/SQL-101/blob/main/README.md
+- selected lecture topic:
+  - `Querying Data`
+- security-focused customization target:
+  - `SQL Injection Prevention in Querying Data`
 
 Why this lecture was selected:
 - it is a natural place to add secure query construction and SQL injection
