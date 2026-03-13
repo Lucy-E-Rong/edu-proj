@@ -5,7 +5,7 @@ This document explains how `generated_modules` is transformed into training JSON
 ## Scope
 
 - Script: `training/data_build/build_from_modules.py`
-- Input: `generated_modules/module_*/combined.md`
+- Input: `generated_modules/21 Modules/module_*/security_{incident,lesson,practice}_document.md`
 - Output:
   - `data/processed/train.jsonl`
   - `data/processed/eval.jsonl`
@@ -14,7 +14,7 @@ This document explains how `generated_modules` is transformed into training JSON
 
 ```bash
 python -m training.data_build.build_from_modules \
-  --source-dir generated_modules \
+  --source-dir "generated_modules/21 Modules" \
   --train-out data/processed/train.jsonl \
   --eval-out data/processed/eval.jsonl
 ```
@@ -26,14 +26,15 @@ Each output JSONL row keeps these fields:
 - `module_id`: source module folder (for traceability)
 - `source_file`: exact file path used for this sample
 - `doc_title`: parsed from front matter `title` or fallback title
+- `doc_kind`: source document type (`incident`, `lesson`, `practice`)
 - `section_title`: markdown section title (`## ...`) or `Overview`
-- `task_type`: generated supervision type (`explain`, `factual_qa`, `safe_rewrite`)
+- `task_type`: generated supervision type (`incident_brief`, `lesson_explain`, `practice_generation`)
 - `risk_level`: currently fixed to `none`
 - `messages`: training-ready chat pair (`user`, `assistant`)
 
 Reason:
 - Keep provenance (`module_id`, `source_file`) for auditing.
-- Keep semantic context (`doc_title`, `section_title`) for debugging and evaluation.
+- Keep semantic context (`doc_title`, `doc_kind`, `section_title`) for debugging and evaluation.
 - Keep task label (`task_type`) for dataset analysis and future sampling controls.
 - Keep `messages` to match `training/train_lora.py` expected format.
 
@@ -41,16 +42,15 @@ Reason:
 
 Active filtering in current script:
 
-- Markdown code blocks are removed from section text.
+- Markdown code blocks are removed for `incident` and `lesson` documents.
+- Markdown code blocks are preserved for `practice` documents.
 - Markdown separator lines (`---`) are removed from section text.
 - Extra blank lines are collapsed.
-- Section text is truncated by character limit (`max_chars` in script).
-- Very short cleaned sections (`<120` chars) are skipped.
 
 Reason:
-- Prevent code-heavy or noisy chunks from dominating supervision text.
-- Keep per-sample length bounded and stable.
-- Drop low-information fragments.
+- Keep incident and lesson samples focused on explanatory natural language.
+- Preserve practice scaffolding where code is part of the exercise format.
+- Remove separator noise while keeping section content intact.
 
 Not preserved as standalone fields:
 
@@ -59,16 +59,16 @@ Not preserved as standalone fields:
 
 ## Segmentation Rules
 
-1. Enumerate `module_*/combined.md`.
-2. Split file into document blocks by front matter (`--- ... ---`).
-3. For each block, split by markdown `##` headings.
-4. Convert each section into up to 3 training tasks:
-   - `explain`
-   - `factual_qa`
-   - `safe_rewrite`
+1. Enumerate `module_*/security_incident_document.md`, `security_lesson_document.md`, and `security_practice_document.md`.
+2. Parse front matter to recover the document title.
+3. Split each document by markdown `##` headings.
+4. Convert each section into exactly one task based on document type:
+   - `incident -> incident_brief`
+   - `lesson -> lesson_explain`
+   - `practice -> practice_generation`
 
 Reason:
-- One long combined file is transformed into many short, task-specific supervised samples.
+- The module's built-in incident/lesson/practice separation is treated as the supervision signal rather than being remapped into the old generic task trio.
 
 ## Risk Logic Status
 
@@ -92,5 +92,5 @@ Code note:
   - `data/processed/train.jsonl`
   - `data/processed/eval.jsonl`
 - Confirm fields:
-  - `module_id`, `source_file`, `doc_title`, `section_title`, `task_type`, `risk_level`, `messages`
+  - `module_id`, `source_file`, `doc_title`, `doc_kind`, `section_title`, `task_type`, `risk_level`, `messages`
 - Confirm `risk_level` is `none` in current mode.

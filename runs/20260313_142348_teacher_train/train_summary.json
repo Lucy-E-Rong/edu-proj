@@ -1,0 +1,12 @@
+{
+  "mode": "teacher",
+  "base_model_dir": "models/granite-3.3-8b-instruct",
+  "init_adapter": "runs/20260313_140305_general_train/adapter",
+  "adapter_dir": "runs/20260313_142348_teacher_train/adapter",
+  "train_file": "data/teachers/sql101/processed/train.jsonl",
+  "eval_file": "data/teachers/sql101/processed/eval.jsonl",
+  "train_examples": 106,
+  "eval_examples": 18,
+  "lr": 0.0002,
+  "epochs": 1
+}

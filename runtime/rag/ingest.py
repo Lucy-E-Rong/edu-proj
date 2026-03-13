@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Sequence
 
 from transformers import AutoTokenizer
+from transformers.utils import logging as hf_logging
 
 
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -30,6 +31,7 @@ class SourceDoc:
 
 
 def _chunk_text_tokenwise(text: str) -> List[Chunk]:
+    hf_logging.set_verbosity_error()
     tokenizer = AutoTokenizer.from_pretrained(EMBEDDING_MODEL)
     token_ids = tokenizer.encode(text, add_special_tokens=False)
     chunks: List[Chunk] = []

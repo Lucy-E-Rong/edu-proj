@@ -1,0 +1,101 @@
+# Run Report
+
+- task_type: `generate_lesson`
+- generator_model_profile: `general`
+- generator_adapter_path: `runs/20260227_194005_general_train/adapter`
+- verifier_model_profile: `base`
+- verifier_adapter_path: `none`
+- rag_topk: `3`
+- chunk_size: `512`
+- chunk_overlap: `50`
+
+## Prompt
+
+```text
+[STYLE GUIDE]
+
+
+[EXAMPLE]
+
+
+[USER PROMPT]
+Produce a lesson-style cybersecurity explanation suitable for classroom teaching. Focus on concept clarity, vulnerable behavior, secure reasoning, and educational flow.
+
+User request:
+Teach secure input validation to beginner students.
+
+[RETRIEVED CONTEXT]
+(1) source=generated_modules/21 Modules/module_001/artifacts/security_lesson_document/compose_iter_0.md, chunk_id=0
+<! - - 1 paragraph. smoothly connect this lesson to prior course material without saying " previous ". - - > in programming 2, you explored how strings can drive program behavior through tokenization, parsing, and small interpreters. this lesson uses that groundwork to show how unsafe assumptions about input can enable unintended actions when a component interprets user - provided expressions, even in a compact simulator. <! - - 1 paragraph. introduce the security concept and name the course topic it fits into. - - > security concept : relying on blacklists for input validation is brittle and error - prone ; a formal allowlist with strict parsing is a safer way to govern what the program will accept. this concept fits into the course topic of building and securing interpreters and expression evaluators in programming 2. <! - - 1 paragraph. briefly explain the course concept that this lesson builds on. - - > you will connect tokenization and parsing techniques you already practiced to a secure evaluation design, showing how robust input handling can prevent attackers from steering a program via crafted inputs. # # introduction to the vulnerable program <! - - 1 - 2 paragraphs. describe what the program is supposed to do and what assumption it makes. keep it concrete and student - friendly. - - > emma ’ s exprguard is a tiny teaching tool that reads a user - provided expression intended to control a virtual robot in a simulator. the program tokenizes the input to allow digits, basic arithmetic operators, parentheses, and a small set of safe identifiers like move and turn. it then passes the expression to a sandboxed interpreter running in a separate process with restricted privileges and no file or network access. the developer assumes the sandbox and a blacklist - based guard are sufficient because the evaluator is isolated and the inputs are restricted by a disallowlist of dangerous keywords. the vulnerability arises from relying on a blacklist rather than a robust parse : a clever student can obfuscate dangerous tokens ( for example, by inserting zero - width characters or unicode tricks ) so that the program ’ s substring checks fail, and the sandbox ends up evaluating a portion of the payload. the class uses this setup to discuss why an allowlist with formal parsing is far safer than a simple blacklist. ` ` ` python # vulnerable exprguard ( blacklist - based ) class exprguard : def is _ forbidden ( self, s : str ) - > bool : s
+
+(2) source=generated_modules/21 Modules/module_007/artifacts/security_lesson_document/compose_iter_0.md, chunk_id=0
+<! - - 1 paragraph. smoothly connect this lesson to prior course material without saying " previous ". - - > mira chen teaches security concepts through practical programming scenarios. in programming 2, you learned to build reliable input handling and control flow ; this lesson extends those ideas by showing how untrusted data at a handshake boundary can influence shell commands, illustrating a pre - auth vulnerability in a gateway and reinforcing safe patterns for os interactions. <! - - 1 paragraph. introduce the security concept and name the course topic it fits into.. - - > security concept : shell command injection arising from insecure input handling. this fits into the course topic of input processing, string manipulation, and safe interaction with the operating system when building network - facing or gateway - like components. <! - - 1 paragraph. briefly explain the course concept that this lesson builds on. - - > in programming 2, you work with parsing input ( such as json ), constructing logic based on that input, and invoking system interfaces. this lesson builds on those foundations by highlighting how concatenating untrusted input into a shell command can lead to remote command execution, even before any user authentication occurs, and why safe invocation patterns matter. # # introduction to the vulnerable program <! - - 1 - 2 paragraphs. describe what the program is supposed to do and what assumption it makes. keep it concrete and student - friendly. - - > vulnlens studio is a safe teaching lab that simulates a gateway handshake on an internal port. the server module accepts a json payload with a field called clientversion. a handshake receiver parses that json, a command builder naively concatenates clientversion into a shell invocation, and a sandbox runner mimics executing the command in a containerized, least - privilege environment. the intended behavior is to start a remote session using the version specified by the client, assuming that clientversion is a benign, well - formed value supplied by an authenticated or trusted client. in safe mode, vulnlens studio enforces an explicit numeric input check and escapes or rejects dangerous characters before any command would be assembled, and the sandbox runner refuses to pass the constructed string to a real shell. the overarching design teaches secure handling of inputs at the boundary and demonstrates how easily insecure patterns can creep into real systems if safe modes are bypassed. ` ` ` python # vulnerable : handshake processing builds and executes
+
+(3) source=generated_modules/21 Modules/module_001/security_lesson_document.md, chunk_id=0
+in programming 2, you explored how strings can drive program behavior through tokenization, parsing, and small interpreters. this lesson uses that groundwork to show how unsafe assumptions about input can enable unintended actions when a component interprets user - provided expressions, even in a compact simulator. security concept : relying on blacklists for input validation is brittle and error - prone ; a formal allowlist with strict parsing is a safer way to govern what the program will accept. this concept fits into the course topic of building and securing interpreters and expression evaluators in programming 2. you will connect tokenization and parsing techniques you already practiced to a secure evaluation design, showing how robust input handling can prevent attackers from steering a program via crafted inputs. # # introduction to the vulnerable program emma ' s exprguard is a tiny teaching tool that reads a user - provided expression intended to control a virtual robot in a simulator. the program tokenizes the input to allow digits, basic arithmetic operators, parentheses, and a small set of safe identifiers like move and turn. it then passes the expression to a sandboxed interpreter running in a separate process with restricted privileges and no file or network access. the developer assumes the sandbox and a blacklist - based guard are sufficient because the evaluator is isolated and the inputs are restricted by a disallowlist of dangerous keywords. the vulnerability arises from relying on a blacklist rather than a robust parse : a clever student can obfuscate dangerous tokens ( for example, by inserting zero - width characters or unicode tricks ) so that the program ' s substring checks fail, and the sandbox ends up evaluating a portion of the payload. the class uses this setup to discuss why an allowlist with formal parsing is far safer than a simple blacklist. ` ` ` python # vulnerable exprguard ( blacklist - based ) class exprguard : def is _ forbidden ( self, s : str ) - > bool : s = ( s or " " ). lower ( ) # incomplete blacklist : only a few dangerous tokens are blocked forbidden = [ " import ", " exec ", " os ", " sys " ] for token in forbidden : if token in s : return true return false def evaluate ( self, expression : str ) : if self. is _ forbidden ( expression ) : raise exception ( " forbidden " ) # direct, unrestricted evaluation of input ( unsafe in practice ) return eval
+
+[CONVERSATION HISTORY]
+No conversation history.
+
+[QUESTION]
+Produce a lesson-style cybersecurity explanation suitable for classroom teaching. Focus on concept clarity, vulnerable behavior, secure reasoning, and educational flow.
+
+User request:
+Teach secure input validation to beginner students.
+```
+
+## Retrieved Chunks
+
+- chunk_id=0 source=generated_modules/21 Modules/module_001/artifacts/security_lesson_document/compose_iter_0.md
+
+<! - - 1 paragraph. smoothly connect this lesson to prior course material without saying " previous ". - - > in programming 2, you explored how strings can drive program behavior through tokenization, parsing, and small interpreters. this lesson uses that groundwork to show how unsafe assumptions about input can enable unintended actions when a component interprets user - provided expressions, even in a compact simulator. <! - - 1 paragraph. introduce the security concept and name the course topic it fits into. - - > security concept : relying on blacklists for input validation is brittle and error - prone ; a formal allowlist with strict parsing is a safer way to govern what the program will accept. this concept fits into the course topic of building and securing interpreters and expression evaluators in programming 2. <! - - 1 paragraph. briefly explain the course concept that this lesson builds on. - - > you will connect tokenization and parsing techniques you already practiced to a secure evaluation design, showing how robust input handling can prevent attackers from steering a program via crafted inputs. # # introduction to the vulnerable program <! - - 1 - 2 paragraphs. describe what the program is supposed to do and what assumption it makes. keep it concrete and student - friendly. - - > emma ’ s exprguard is a tiny teaching tool that reads a user - provided expression intended to control a virtual robot in a simulator. the program tokenizes the input to allow digits, basic arithmetic operators, parentheses, and a small set of safe identifiers like move and turn. it then passes the expression to a sandboxed interpreter running in a separate process with restricted privileges and no file or network access. the developer assumes the sandbox and a blacklist - based guard are sufficient because the evaluator is isolated and the inputs are restricted by a disallowlist of dangerous keywords. the vulnerability arises from relying on a blacklist rather than a robust parse : a clever student can obfuscate dangerous tokens ( for example, by inserting zero - width characters or unicode tricks ) so that the program ’ s substring checks fail, and the sandbox ends up evaluating a portion of the payload. the class uses this setup to discuss why an allowlist with formal parsing is far safer than a simple blacklist. ` ` ` python # vulnerable exprguard ( blacklist - based ) class exprguard : def is _ forbidden ( self, s : str ) - > bool : s
+
+- chunk_id=0 source=generated_modules/21 Modules/module_007/artifacts/security_lesson_document/compose_iter_0.md
+
+<! - - 1 paragraph. smoothly connect this lesson to prior course material without saying " previous ". - - > mira chen teaches security concepts through practical programming scenarios. in programming 2, you learned to build reliable input handling and control flow ; this lesson extends those ideas by showing how untrusted data at a handshake boundary can influence shell commands, illustrating a pre - auth vulnerability in a gateway and reinforcing safe patterns for os interactions. <! - - 1 paragraph. introduce the security concept and name the course topic it fits into.. - - > security concept : shell command injection arising from insecure input handling. this fits into the course topic of input processing, string manipulation, and safe interaction with the operating system when building network - facing or gateway - like components. <! - - 1 paragraph. briefly explain the course concept that this lesson builds on. - - > in programming 2, you work with parsing input ( such as json ), constructing logic based on that input, and invoking system interfaces. this lesson builds on those foundations by highlighting how concatenating untrusted input into a shell command can lead to remote command execution, even before any user authentication occurs, and why safe invocation patterns matter. # # introduction to the vulnerable program <! - - 1 - 2 paragraphs. describe what the program is supposed to do and what assumption it makes. keep it concrete and student - friendly. - - > vulnlens studio is a safe teaching lab that simulates a gateway handshake on an internal port. the server module accepts a json payload with a field called clientversion. a handshake receiver parses that json, a command builder naively concatenates clientversion into a shell invocation, and a sandbox runner mimics executing the command in a containerized, least - privilege environment. the intended behavior is to start a remote session using the version specified by the client, assuming that clientversion is a benign, well - formed value supplied by an authenticated or trusted client. in safe mode, vulnlens studio enforces an explicit numeric input check and escapes or rejects dangerous characters before any command would be assembled, and the sandbox runner refuses to pass the constructed string to a real shell. the overarching design teaches secure handling of inputs at the boundary and demonstrates how easily insecure patterns can creep into real systems if safe modes are bypassed. ` ` ` python # vulnerable : handshake processing builds and executes
+
+- chunk_id=0 source=generated_modules/21 Modules/module_001/security_lesson_document.md
+
+in programming 2, you explored how strings can drive program behavior through tokenization, parsing, and small interpreters. this lesson uses that groundwork to show how unsafe assumptions about input can enable unintended actions when a component interprets user - provided expressions, even in a compact simulator. security concept : relying on blacklists for input validation is brittle and error - prone ; a formal allowlist with strict parsing is a safer way to govern what the program will accept. this concept fits into the course topic of building and securing interpreters and expression evaluators in programming 2. you will connect tokenization and parsing techniques you already practiced to a secure evaluation design, showing how robust input handling can prevent attackers from steering a program via crafted inputs. # # introduction to the vulnerable program emma ' s exprguard is a tiny teaching tool that reads a user - provided expression intended to control a virtual robot in a simulator. the program tokenizes the input to allow digits, basic arithmetic operators, parentheses, and a small set of safe identifiers like move and turn. it then passes the expression to a sandboxed interpreter running in a separate process with restricted privileges and no file or network access. the developer assumes the sandbox and a blacklist - based guard are sufficient because the evaluator is isolated and the inputs are restricted by a disallowlist of dangerous keywords. the vulnerability arises from relying on a blacklist rather than a robust parse : a clever student can obfuscate dangerous tokens ( for example, by inserting zero - width characters or unicode tricks ) so that the program ' s substring checks fail, and the sandbox ends up evaluating a portion of the payload. the class uses this setup to discuss why an allowlist with formal parsing is far safer than a simple blacklist. ` ` ` python # vulnerable exprguard ( blacklist - based ) class exprguard : def is _ forbidden ( self, s : str ) - > bool : s = ( s or " " ). lower ( ) # incomplete blacklist : only a few dangerous tokens are blocked forbidden = [ " import ", " exec ", " os ", " sys " ] for token in forbidden : if token in s : return true return false def evaluate ( self, expression : str ) : if self. is _ forbidden ( expression ) : raise exception ( " forbidden " ) # direct, unrestricted evaluation of input ( unsafe in practice ) return eval
+
+## Output
+
+```text
+- ### The Problem with Blacklists
+- The underlying risk is that blacklists are often incomplete and can be circumvented when attackers know the underlying system.
+- They rely on the assumption that the list of dangerous tokens is exhaustive and that no novel obfuscation techniques can bypass the blacklist.
+- This is a fragile approach because it depends on the attacker not finding a way to introduce an expression that evades the simple checks.
+- For example, if the blacklist only checks for a few keywords, an attacker might encode a command using zero-width characters or Unicode tricks that the simple substring check fails to detect.
+- A formal allowlist, on the other hand, defines the exact structure and allowed components of a valid expression, and anything that doesn't match the allowlist is rejected outright.
+- This approach is more robust because it prevents unintended tokens from being interpreted, and it avoids the constant arms race of trying to keep up with new obfuscation techniques.
+- The class will demonstrate how a well-defined allowlist can prevent the exploitation and reinforce the importance of strict, structured input validation.
+- ### Secure Reasoning and Practice
+- This lesson connects to the overarching theme of defensive programming and secure design by showing how a robust input model and a clear control flow prevent unintended side effects.
+- The class will practice building a safe evaluator that enforces a strict allowlist and rejects any expression that doesn't conform to the expected grammar and data types.
+- This practice will reinforce the idea that the safest approach is to define what is allowed rather than trying to block everything that might be dangerous.
+- ### The Secure Design
+- The secure design centers on an allowlist that defines the grammar of valid expressions, a parser that enforces that grammar, and a sandbox that executes only the safe, well-defined operations.
+- The evaluator should reject any input that doesn't fit the allowlist and provide clear, actionable error messages.
+- The sandbox should ensure that the execution context is isolated and that all operations are constrained to the safe subset of the language.
+- ### Classroom Follow-Up
+- In follow-on exercises, students will extend the secure evaluator to support more features while maintaining a strict allowlist.
+- They will learn how to add new safe operations, how to handle data flow and state management, and how
+```
+
+## Verifier Result
+
+```json
+{
+  "relevance_pass": true,
+  "safety_pass": true,
+  "reasons": [
+    "The content is educational, focusing on teaching secure input validation to beginner students.",
+    "It clearly explains the concept of blacklists and their inherent vulnerabilities in input validation.",
+    "The explanation of allowlists as a safer alternative is provided with clear rationale.",
+    "The lesson structure includes secure reasoning, practice, and a secure design outline, all of which are crucial for educational flow.",
+    "No harmful, unethical, prejudiced, or negative content is present.",
+    "The content promotes fairness and positivity by encouraging secure coding practices."
+  ],
+  "action": "allow"
+}
+```

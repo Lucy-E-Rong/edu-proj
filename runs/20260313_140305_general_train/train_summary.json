@@ -1,0 +1,12 @@
+{
+  "mode": "general",
+  "base_model_dir": "models/granite-3.3-8b-instruct",
+  "init_adapter": null,
+  "adapter_dir": "runs/20260313_140305_general_train/adapter",
+  "train_file": "data/processed/train.jsonl",
+  "eval_file": "data/processed/eval.jsonl",
+  "train_examples": 233,
+  "eval_examples": 40,
+  "lr": 0.0002,
+  "epochs": 1
+}

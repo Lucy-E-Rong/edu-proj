@@ -8,13 +8,14 @@ This project uses a two-stage adapter training workflow:
 ## Stage A: General Model Adapter
 
 Input:
-- `generated_modules/module_*/combined.md` (converted to JSONL via `build_from_modules.py`)
+- `generated_modules/21 Modules/module_*/security_{incident,lesson,practice}_document.md`
+  (converted to JSONL via `build_from_modules.py`)
 
 Command:
 
 ```bash
 python -m training.data_build.build_from_modules \
-  --source-dir generated_modules \
+  --source-dir "generated_modules/21 Modules" \
   --train-out data/processed/train.jsonl \
   --eval-out data/processed/eval.jsonl
 
@@ -60,6 +61,8 @@ python training/infer_with_adapter.py \
 
 ## Why this design
 
-- Stage A captures broad domain knowledge from David's module corpus.
+- Stage A captures broad domain knowledge from David's module corpus, using the
+  module's own incident/lesson/practice document split as the supervision
+  structure.
 - Stage B adds individual teacher preferences and local curriculum style.
 - Keeping adapters separate makes retraining and comparison simpler.

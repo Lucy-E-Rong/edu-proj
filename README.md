@@ -8,55 +8,43 @@ workflows with two training stages:
    model can generate security content that fits a specific CS course context.
 
 The current repository uses:
-- David's module corpus in `generated_modules/`
+- David's module corpus in `generated_modules/21 Modules/**/security_*_document.md`
 - a database-course teacher corpus based on `SQL-101` in
   `data/teachers/sql101/original/`
+- additional teacher materials can be placed under `data/teachers/`
 
 ## Branch Notes
 
-This repository is organized around a local-first workflow rather than a
-cloud-hosted product workflow.
-
-- `main`
-  - active development branch for the full end-to-end education pipeline
-  - contains the current general-training, teacher-customization, runtime, and
-    experiment artifacts used in this project report
 - `server/8b`
   - server-oriented profile for running the 8B Granite-based workflow on a GPU
     node
   - intended for heavier training and inference runs when local hardware is not
     sufficient
+- `local/2b`
+  - local 2B Granite workflow intended for lighter-weight pipeline checks on a
+    desktop GPU
+  - keeps the core training and runtime path available in a smaller setup
 
-The tool is designed to solve a specific teaching problem: instructors may want
-cybersecurity content that is both domain-aware and course-aware, while still
-keeping all data and model adaptation local. The motivation is to avoid a
-single black-box generator that cannot easily show where domain knowledge came
-from, how training data was derived, or how the output was adapted to a
-particular course. The enabled features are meaningful because they separate
-the broad cybersecurity knowledge stage from the teacher-specific adaptation
-stage, making the workflow more auditable, reusable, and extensible.
+This repository is built for a specific teaching problem: an instructor may
+want cybersecurity content that is both domain-aware and course-aware, while
+keeping all data, adaptation, and evaluation local and inspectable.
 
-Design goal:
-This repository is designed to produce a general cybersecurity education model
-from David's stable module format first, and then let an individual teacher
-customize that model with local course materials. The intended outcome is not
-to regenerate David-style modules, but to generate cybersecurity learning
-content that reflects the target course context.
+Design goal: build a reusable general cybersecurity education model from
+David's stable module format first, then allow a teacher to adapt that model
+with course materials from a concrete CS course. The output target is not a
+new David-style module set, but cybersecurity learning materials that match a
+course context.
 
-Motivation:
-David's modules are the general cybersecurity knowledge source, while teacher
-materials are the course customization source. This separation matters because
-the customized model should consider the teacher's material when generating
-content, but it should do so on top of an already learned cybersecurity base
-rather than starting from course material alone.
+Motivation: David's modules act as the general cybersecurity knowledge source,
+while teacher materials act as the course customization source. This avoids a
+black-box workflow where it is unclear where domain knowledge comes from, how
+training data was derived, or why the generated output fits a specific class.
 
-Feature significance:
-The current feature set is meaningful because it keeps the two adaptation
-stages explicit. The general stage learns cybersecurity concepts, defensive
-teaching patterns, and module-derived content structure. The teacher stage
-then adds course terminology, lecture framing, topic emphasis, and classroom
-practice style, such as database terminology, SQL-focused examples, and
-course-aligned exercises.
+Feature significance: the current design keeps each layer explicit. LoRA/SFT
+provide a traceable way to adapt the model, CAG supplies runtime style and
+example guidance, RAG injects local supporting context, and the split between
+general training and teacher customization makes it easier to inspect,
+compare, and refine each stage independently.
 
 ## System Overview
 
@@ -75,11 +63,12 @@ The project has three main layers, in execution order:
 3. Runtime generation
    - loads one of three runtime model profiles: `base`, `general`, or
      `teacher`
-   - generates exercises, rubrics, and factual answers
+   - generates incident briefings, lesson explanations, practice activities,
+     and rubrics
    - can add optional RAG over locally indexed content
    - runs a verifier and writes report/trace artifacts for auditability
 
-## Runtime Model Roles
+## Core Roles
 
 These terms refer to different layers of the system and should not be treated
 as interchangeable:
@@ -100,15 +89,25 @@ as interchangeable:
 - `orchestrator`
   - the runtime controller in `runtime/workflow/orchestrator.py`
   - it does not train or store model weights
-  - it decides how a request is executed: prompt construction, optional RAG,
-    verifier pass, and report/trace writing
+  - it receives CLI tasks, selects the model profile, optionally retrieves RAG
+    context, assembles CAG + RAG prompts, calls generation, runs the verifier,
+    and writes run artifacts
+- `CLI subcommands`
+  - `ingest`, `incident`, `lesson`, `practice`, and `rubric` are project-level
+    commands defined in `runtime/app/cli.py`
+  - they organize user requests into task-specific runtime workflows rather
+    than acting as training steps
+- `CAG`
+  - adds fixed style guidance and examples to runtime prompts
+- `RAG`
+  - retrieves local chunks first, then inserts them into the prompt before
+    generation
 
-Practical difference:
-- the `teacher-customized model` changes what the model has learned
-- the `orchestrator` changes how the application uses a selected model
-- connecting the orchestrator to the teacher profile means the runtime now
-  actually uses the trained teacher adapter instead of falling back to the base
-  model
+In short:
+- the model and adapter determine what the system has learned
+- CAG determines how it should write
+- RAG determines what local context it should reference for this run
+- the CLI and orchestrator determine what kind of output is being requested
 
 Training vs inference relationship:
 
@@ -150,7 +149,7 @@ flowchart TD
   TTRAIN --> TADP[Teacher Adapter]
 
   COURSE[Local Course Files] --> RAGX[Optional RAG Ingest]
-  GADP --> RUNTIME[Runtime Exercise/Rubric/Factual Generation]
+  GADP --> RUNTIME[Runtime Incident/Lesson/Practice/Rubric Generation]
   TADP --> RUNTIME
   RAGX --> RUNTIME
   RUNTIME --> PROFILES[Runtime model profile switch: base/general/teacher]
@@ -160,22 +159,18 @@ flowchart TD
   TINF --> COMP
 ```
 
-Current workflow and tool roles:
-The workflow starts with David's modules, which are treated as stable-format
-inputs for building the general cybersecurity training dataset. The
-`training/data_build/build_from_modules.py` script transforms these modules
-into supervised JSONL for general LoRA training. Teacher customization is then
-handled separately: `training/data_build/extract_teacher_corpus.py` converts
-teacher files into normalized text blocks, `training/data_build/generate_teacher_jsonl.py`
-turns those blocks into teacher-stage supervision, and
-`training/data_build/validate_teacher_jsonl.py` checks the resulting schema and
-content quality. `training/train_lora.py` is the shared training entry point
-for both the general adapter and the teacher continuation stage. After
-training, `training/infer_with_adapter.py` supports direct adapter testing,
-while the runtime layer uses `runtime/app/cli.py` as the terminal entry point
-and `runtime/workflow/orchestrator.py` as the controller that selects a model
-profile, optionally performs RAG, builds prompts, runs verification, and saves
-execution traces.
+Current workflow:
+- `training/data_build/build_from_modules.py` converts David's incident,
+  lesson, and practice documents into general-stage JSONL.
+- `training/train_lora.py` trains the general adapter and then the
+  teacher-continuation adapter.
+- `training/data_build/extract_teacher_corpus.py`,
+  `generate_teacher_jsonl.py`, and `validate_teacher_jsonl.py` prepare the
+  teacher-stage dataset.
+- `training/infer_with_adapter.py` is the direct adapter test path.
+- `runtime/app/cli.py` is the terminal entry point for runtime generation.
+- `runtime/workflow/orchestrator.py` is the runtime controller for model
+  selection, CAG, RAG, verification, and trace/report logging.
 
 ## Repository Structure
 
@@ -206,24 +201,29 @@ model. The repository assumes new modules will continue to follow the same or a
 very similar structure.
 
 Important format assumptions:
-- modules live under `generated_modules/module_*/`
-- the main training source is `combined.md`
+- modules live under `generated_modules/21 Modules/module_*/`
+- each module provides:
+  - `security_incident_document.md`
+  - `security_lesson_document.md`
+  - `security_practice_document.md`
 - the corpus mixes real-vulnerability context, lesson-style explanations, and
-  practice-oriented educational content
+  practice-oriented educational content in these three document types
 
 Items that need attention when using new modules:
 - keep the `module_*` directory convention stable
-- keep `combined.md` present for each module
-- preserve the section structure because the current builder splits by front
-  matter and markdown headings
-- review especially long or code-heavy sections because they can dominate the
-  resulting supervision text
+- keep the three `security_*_document.md` files present for each module
+- preserve front matter and `##` section headings because the current builder
+  uses those structures to create training samples
+- avoid adding archive artifacts such as `__MACOSX/` into the training source
+- review especially long or code-heavy practice sections because they can
+  dominate supervision text if left unchecked
 
 How the fine-tuned general model reflects module content:
-- the general dataset builder turns module sections into training-ready
-  `messages`
+- the general dataset builder turns incident, lesson, and practice sections
+  into training-ready `messages`
 - the resulting adapter learns cybersecurity teaching language such as
-  vulnerability explanation, factual summary, and defensive rewrite patterns
+  incident briefings, lesson-style explanations, and practice-oriented task
+  formats
 - the model output remains broad and cybersecurity-centered, which is useful for
   general instruction but not sufficient by itself for course-specific teaching
 
@@ -252,6 +252,73 @@ model:
   base_model_dir: "models/granite-3.3-8b-instruct"
 ```
 
+## Quick Start
+
+The shortest end-to-end path is:
+
+1. Build the general-stage JSONL from David's modules.
+2. Train the general adapter.
+3. Extract and generate the teacher-stage JSONL.
+4. Train the teacher adapter from the general adapter.
+5. Build RAG collections.
+6. Run runtime generation with the `teacher` profile.
+
+```bash
+cd /home/yrong_umassd_edu/project_edu/edu-proj
+source .venv/bin/activate
+
+python -m training.data_build.build_from_modules \
+  --source-dir "generated_modules/21 Modules" \
+  --train-out data/processed/train.jsonl \
+  --eval-out data/processed/eval.jsonl
+
+python training/train_lora.py \
+  --mode general \
+  --config configs/config.yaml
+
+python -m training.data_build.extract_teacher_corpus \
+  --source-dir data/teachers/sql101/original \
+  --course-id sql101 \
+  --out data/teachers/sql101/extracted/blocks.jsonl
+
+python -m training.data_build.generate_teacher_jsonl \
+  --extracted-file data/teachers/sql101/extracted/blocks.jsonl \
+  --train-out data/teachers/sql101/processed/train.jsonl \
+  --eval-out data/teachers/sql101/processed/eval.jsonl \
+  --model-path models/granite-3.3-8b-instruct
+
+python -m training.data_build.validate_teacher_jsonl \
+  --train-file data/teachers/sql101/processed/train.jsonl \
+  --eval-file data/teachers/sql101/processed/eval.jsonl
+
+python training/train_lora.py \
+  --mode teacher \
+  --config configs/config.yaml \
+  --init-adapter runs/<general_run_id>/adapter \
+  --train-file data/teachers/sql101/processed/train.jsonl \
+  --eval-file data/teachers/sql101/processed/eval.jsonl
+
+python -m runtime.app.cli ingest \
+  --collection general \
+  --source-glob "generated_modules/21 Modules/**/*.md"
+
+python -m runtime.app.cli ingest \
+  --collection teacher \
+  --source-glob "data/teachers/sql101/original/**/*.md"
+
+python -m runtime.app.cli lesson \
+  --model-profile teacher \
+  "Teach SQL injection prevention in a database course context."
+
+python -m runtime.app.cli practice \
+  --model-profile teacher \
+  "Create a beginner SQL security practice activity about parameterized queries."
+
+python -m runtime.app.cli rubric \
+  --model-profile teacher \
+  "Focus on correctness, clarity, and defensive reasoning."
+```
+
 ## Runtime Workflow
 
 Runtime is downstream from training. Once the base model and any desired
@@ -271,28 +338,27 @@ The runtime orchestrator uses the selected profile for generation, while the
 verifier stays on the `base` profile by default. These mappings are configured
 in `configs/config.yaml`.
 
-Build the local RAG index from the generated module corpus:
+Build the local RAG index for the general collection:
 
 ```bash
-python -m runtime.app.cli ingest
+python -m runtime.app.cli ingest --collection general --source-glob "generated_modules/21 Modules/**/*.md"
 ```
 
-You can also ingest an explicit source:
+Build the teacher collection:
 
 ```bash
-python -m runtime.app.cli ingest --source-glob "generated_modules/**/*.md"
-python -m runtime.app.cli ingest --source-file "<path/to/course_material.md>"
+python -m runtime.app.cli ingest --collection teacher --source-glob "data/teachers/sql101/original/**/*.md"
+python -m runtime.app.cli ingest --collection teacher --source-file "<path/to/course_material.md>"
 ```
 
 Run the CLI:
 
 ```bash
-python -m runtime.app.cli exercise "Create a beginner phishing quiz"
-python -m runtime.app.cli exercise --model-profile base "Create a beginner phishing quiz"
-python -m runtime.app.cli exercise --model-profile general "Create a beginner phishing quiz"
-python -m runtime.app.cli exercise --model-profile teacher "Create a beginner phishing quiz"
+python -m runtime.app.cli incident "Create an incident briefing about insecure patch validation"
+python -m runtime.app.cli lesson --model-profile base "Teach secure input validation to beginners"
+python -m runtime.app.cli lesson --model-profile general "Teach secure input validation to beginners"
+python -m runtime.app.cli practice --model-profile teacher "Create a beginner SQL security practice activity"
 python -m runtime.app.cli rubric --model-profile teacher "Focus on clarity and correctness"
-python -m runtime.app.cli factual --model-profile teacher "What is least privilege?"
 ```
 
 Runtime artifacts are written under:
@@ -305,6 +371,27 @@ Each runtime report now records:
 - verifier model profile
 - verifier adapter path
 
+Runtime request flow:
+
+```text
+CLI command
+  -> task selection (incident / lesson / practice / rubric)
+  -> orchestrator
+  -> optional RAG retrieval from local Chroma index
+  -> CAG prompt assembly (style guide + example + task instruction)
+  -> selected runtime model profile (base / general / teacher)
+  -> verifier check
+  -> report and trace artifacts in runs/
+```
+
+In this flow, the task type determines what kind of content is requested, the
+selected model profile determines which trained model behavior is used, CAG
+adds style and example guidance, and RAG adds retrieved local context when
+enabled. The runtime uses separate RAG collections for general and teacher
+materials. In the current design, the `teacher` model profile retrieves from
+the teacher collection first and then falls back to the general collection if
+it needs additional context.
+
 ## Stage 1: General Adapter Training
 
 This stage creates the general cybersecurity education model from David's
@@ -314,7 +401,7 @@ Build train/eval JSONL from David's module corpus:
 
 ```bash
 python -m training.data_build.build_from_modules \
-  --source-dir generated_modules \
+  --source-dir "generated_modules/21 Modules" \
   --train-out data/processed/train.jsonl \
   --eval-out data/processed/eval.jsonl
 ```
@@ -335,7 +422,7 @@ Additional notes:
 - the builder is designed for David's corpus rather than arbitrary user input
 
 General-model generation pipeline summary:
-1. collect David's modules in `generated_modules/`
+1. collect David's modules in `generated_modules/21 Modules/`
 2. transform them into `data/processed/train.jsonl` and `eval.jsonl`
 3. train the general adapter
 4. use the general adapter as the base for any later teacher-specific adapter
@@ -539,9 +626,9 @@ ls runs/20260305_120655_teacher_train/adapter
 2. Run the same prompt through all three profiles:
 
 ```bash
-python -m runtime.app.cli exercise --model-profile base "Write a short SQL security classroom exercise."
-python -m runtime.app.cli exercise --model-profile general "Write a short SQL security classroom exercise."
-python -m runtime.app.cli exercise --model-profile teacher "Write a short SQL security classroom exercise."
+python -m runtime.app.cli practice --model-profile base "Write a short SQL security classroom practice activity."
+python -m runtime.app.cli practice --model-profile general "Write a short SQL security classroom practice activity."
+python -m runtime.app.cli practice --model-profile teacher "Write a short SQL security classroom practice activity."
 ```
 
 3. Check the console output:
@@ -560,11 +647,12 @@ python -m runtime.app.cli exercise --model-profile teacher "Write a short SQL se
 - `general` should show broader cybersecurity teaching style
 - `teacher` should align more strongly with the SQL-course framing
 
-6. Test rubric and factual generation the same way if needed:
+6. Test incident, lesson, and rubric generation the same way if needed:
 
 ```bash
+python -m runtime.app.cli incident --model-profile teacher "Create a defensive incident briefing about query injection risk."
+python -m runtime.app.cli lesson --model-profile teacher "Teach what a parameterized query is."
 python -m runtime.app.cli rubric --model-profile teacher "Focus on beginner-friendly grading language"
-python -m runtime.app.cli factual --model-profile teacher "What is a parameterized query?"
 ```
 
 ## Difference from the Reference Paper

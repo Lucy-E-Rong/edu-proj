@@ -8,7 +8,7 @@ COLLECTION_NAME = "edu_chunks"
 DEFAULT_TOP_K = 3
 
 
-def retrieve(query: str, k: int = DEFAULT_TOP_K) -> List[Dict[str, Any]]:
+def _query_collection(query: str, collection_name: str, k: int) -> List[Dict[str, Any]]:
     import chromadb
     from sentence_transformers import SentenceTransformer
 
@@ -16,14 +16,12 @@ def retrieve(query: str, k: int = DEFAULT_TOP_K) -> List[Dict[str, Any]]:
     if not query:
         return []
 
-    k = DEFAULT_TOP_K
-
     embedder = SentenceTransformer(EMBEDDING_MODEL)
     query_embedding = embedder.encode(query).tolist()
 
     client = chromadb.PersistentClient(path=CHROMA_DIR)
     collection = client.get_or_create_collection(
-        name=COLLECTION_NAME,
+        name=collection_name,
         metadata={"hnsw:space": "cosine"},
     )
 
@@ -45,6 +43,34 @@ def retrieve(query: str, k: int = DEFAULT_TOP_K) -> List[Dict[str, Any]]:
                 "source": (meta or {}).get("source", "unknown"),
                 "chunk_id": (meta or {}).get("chunk_id", "n/a"),
                 "distance": dist,
+                "collection": collection_name,
             }
         )
     return output
+
+
+def retrieve(query: str, k: int = DEFAULT_TOP_K, collection_name: str = COLLECTION_NAME) -> List[Dict[str, Any]]:
+    return _query_collection(query=query, collection_name=collection_name, k=k)
+
+
+def retrieve_teacher_first(
+    query: str,
+    teacher_collection: str,
+    general_collection: str,
+    teacher_k: int = DEFAULT_TOP_K,
+    fallback_k: int = 2,
+) -> List[Dict[str, Any]]:
+    primary = _query_collection(query=query, collection_name=teacher_collection, k=teacher_k)
+    if len(primary) >= teacher_k or fallback_k <= 0:
+        return primary
+
+    seen = {(item["source"], item["chunk_id"]) for item in primary}
+    fallback = _query_collection(query=query, collection_name=general_collection, k=fallback_k)
+    merged = list(primary)
+    for item in fallback:
+        key = (item["source"], item["chunk_id"])
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(item)
+    return merged

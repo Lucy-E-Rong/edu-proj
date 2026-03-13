@@ -13,6 +13,8 @@ __pycache__/
 #runs/
 chroma/
 models/
+generated_modules/
+README.zh-CN.local.md
 
 # Large model files
 *.safetensors

@@ -9,14 +9,14 @@ from typing import Any, Dict, List, Optional
 from core.modeling import ChatModel, ModelSettings
 from core.prompt_builders import build_cag_prompt, build_rag_prompt
 from runtime.cag.load_assets import load_cag_assets
-from runtime.rag.retrieve import retrieve
+from runtime.rag.retrieve import retrieve, retrieve_teacher_first
 from runtime.verifier.verifier import VerifierLLM
 
 
 @dataclass
 class SharedMemory:
     conversation_history: List[Dict[str, str]] = field(default_factory=list)
-    latest_exercise: str = ""
+    latest_practice: str = ""
     latest_rubric: str = ""
     last_retrieved_chunks: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -70,6 +70,26 @@ class Orchestrator:
         run_dir = Path(self.config["output"]["runs_dir"]) / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         return run_dir
+
+    def _retrieve_context(self, query: str) -> List[Dict[str, Any]]:
+        rag_cfg = self.config["rag"]
+        collections = rag_cfg.get("collections", {})
+        general_collection = collections.get("general", "general_chunks")
+        teacher_collection = collections.get("teacher", "teacher_chunks")
+        topk = int(rag_cfg.get("topk", 3))
+        fallback_k = int(rag_cfg.get("teacher_fallback_topk", 2))
+
+        if self.model_profile == "teacher":
+            return retrieve_teacher_first(
+                query=query,
+                teacher_collection=teacher_collection,
+                general_collection=general_collection,
+                teacher_k=topk,
+                fallback_k=fallback_k,
+            )
+        if self.model_profile == "general":
+            return retrieve(query=query, k=topk, collection_name=general_collection)
+        return retrieve(query=query, k=topk, collection_name=general_collection)
 
     def _append_trace(self, trace_file: Path, item: Dict[str, Any]) -> None:
         with trace_file.open("a", encoding="utf-8") as f:
@@ -127,32 +147,37 @@ class Orchestrator:
         use_rag: bool = False,
         rubric_source_text: Optional[str] = None,
     ) -> Dict[str, Any]:
-        if task_type not in {"generate_exercise", "generate_rubric", "factual_question"}:
+        if task_type not in {"generate_incident", "generate_lesson", "generate_practice", "generate_rubric"}:
             raise ValueError(f"Unsupported task_type: {task_type}")
 
         run_dir = self._new_run_dir()
         trace_file = run_dir / "trace.jsonl"
 
-        retrieved = retrieve(user_prompt, k=self.config["rag"]["topk"]) if use_rag else []
+        retrieved = self._retrieve_context(user_prompt) if use_rag else []
         self.memory.last_retrieved_chunks = retrieved
 
         if task_type == "generate_rubric":
-            base_text = rubric_source_text or self.memory.latest_exercise
+            base_text = rubric_source_text or self.memory.latest_practice
             if not base_text:
-                latest_path = Path(self.config["output"]["runs_dir"]) / "latest_exercise.txt"
-                if latest_path.exists():
-                    base_text = latest_path.read_text(encoding="utf-8").strip()
+                latest_practice_path = Path(self.config["output"]["runs_dir"]) / "latest_practice.txt"
+                legacy_practice_path = Path(self.config["output"]["runs_dir"]) / "latest_exercise.txt"
+                if latest_practice_path.exists():
+                    base_text = latest_practice_path.read_text(encoding="utf-8").strip()
+                elif legacy_practice_path.exists():
+                    base_text = legacy_practice_path.read_text(encoding="utf-8").strip()
             user_prompt = (
-                f"Create a concise grading rubric for this exercise:\n{base_text}\n\n"
+                f"Create a concise grading rubric for this practice activity:\n{base_text}\n\n"
                 f"Additional constraints:\n{user_prompt}"
             )
+
+        user_prompt = f"{self._task_instruction(task_type)}\n\nUser request:\n{user_prompt}"
 
         style_guide, example = load_cag_assets()
         cag_prompt = build_cag_prompt(style_guide, example, user_prompt)
         rag_prompt = build_rag_prompt(retrieved, self.memory.conversation_history, user_prompt)
 
         effective_prompt = cag_prompt
-        if task_type == "factual_question" or (task_type == "generate_exercise" and use_rag):
+        if use_rag:
             effective_prompt = f"{cag_prompt}\n\n{rag_prompt}"
 
         current_output = self.generator.generate(
@@ -211,9 +236,9 @@ class Orchestrator:
         self.memory.conversation_history.append({"role": "user", "content": user_prompt})
         self.memory.conversation_history.append({"role": "assistant", "content": current_output})
 
-        if task_type == "generate_exercise":
-            self.memory.latest_exercise = current_output
-            latest_path = Path(self.config["output"]["runs_dir"]) / "latest_exercise.txt"
+        if task_type == "generate_practice":
+            self.memory.latest_practice = current_output
+            latest_path = Path(self.config["output"]["runs_dir"]) / "latest_practice.txt"
             latest_path.parent.mkdir(parents=True, exist_ok=True)
             latest_path.write_text(current_output, encoding="utf-8")
         if task_type == "generate_rubric":
@@ -234,3 +259,23 @@ class Orchestrator:
             "verifier": verifier_result,
             "memory": asdict(self.memory),
         }
+    def _task_instruction(self, task_type: str) -> str:
+        instructions = {
+            "generate_incident": (
+                "Produce an incident-style cybersecurity briefing. Focus on product context, "
+                "intended behavior, the vulnerability or incident path, risk, and defensive mitigation."
+            ),
+            "generate_lesson": (
+                "Produce a lesson-style cybersecurity explanation suitable for classroom teaching. "
+                "Focus on concept clarity, vulnerable behavior, secure reasoning, and educational flow."
+            ),
+            "generate_practice": (
+                "Produce a practice-style classroom activity. Focus on scenario setup, target behavior, "
+                "student tasks, patching or verification steps, and instructional usability."
+            ),
+            "generate_rubric": (
+                "Produce a grading rubric aligned to the provided practice activity. Keep the rubric concise, "
+                "clear, and classroom-appropriate."
+            ),
+        }
+        return instructions[task_type]

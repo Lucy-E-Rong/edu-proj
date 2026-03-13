@@ -21,6 +21,10 @@ rag:
   chunk: 512
   overlap: 50
   topk: 3
+  teacher_fallback_topk: 2
+  collections:
+    general: "general_chunks"
+    teacher: "teacher_chunks"
 
 lora:
   r: 16
