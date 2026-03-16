@@ -29,22 +29,34 @@ This repository is built for a specific teaching problem: an instructor may
 want cybersecurity content that is both domain-aware and course-aware, while
 keeping all data, adaptation, and evaluation local and inspectable.
 
-Design goal: build a reusable general cybersecurity education model from
-David's stable module format first, then allow a teacher to adapt that model
-with course materials from a concrete CS course. The output target is not a
-new David-style module set, but cybersecurity learning materials that match a
-course context.
+Design goal: move a local teacher-support framework beyond prompt- and
+workflow-only customization into a reusable adaptation pipeline. In this
+repository, the model first learns general cybersecurity teaching behavior
+from David's stable module format, then receives lightweight teacher-specific
+alignment from local course materials. The target output is not another
+David-style module set, but cybersecurity learning materials that stay aligned
+with a concrete course context across multiple task types.
 
-Motivation: David's modules act as the general cybersecurity knowledge source,
-while teacher materials act as the course customization source. This avoids a
-black-box workflow where it is unclear where domain knowledge comes from, how
-training data was derived, or why the generated output fits a specific class.
+Motivation: the reference framing behind this project emphasizes local small
+models, RAG/CAG, teacher-in-the-loop refinement, and verification as ways to
+address privacy, cost, and controllability in education. That design is
+primarily inference-time augmentation: the model can see retrieved materials,
+style guidance, and examples during a run, but it does not necessarily learn a
+stable domain or teacher-specific behavior. This repository adds a training
+layer because prompt injection alone is often not enough to make a small model
+consistently internalize instructional structure, domain language, and course
+preferences over time.
 
-Feature significance: the current design keeps each layer explicit. LoRA/SFT
-provide a traceable way to adapt the model, CAG supplies runtime style and
-example guidance, RAG injects local supporting context, and the split between
-general training and teacher customization makes it easier to inspect,
-compare, and refine each stage independently.
+Feature significance: the main contribution here is not merely that LoRA/SFT,
+RAG, CAG, and a verifier all coexist. The more important shift is that teacher
+customization is no longer treated only as temporary runtime context. Instead,
+the workflow becomes a `training + retrieval + verification` stack:
+general-stage SFT writes reusable cybersecurity teaching behavior into an
+adapter, teacher-stage continuation aligns that behavior to a specific course,
+RAG supplies run-specific factual context, CAG constrains style and prompt
+shape, and the verifier checks the output. This reduces over-reliance on long
+prompts and retrieval quality alone, while improving consistency, stability,
+and cross-task transfer.
 
 ## System Overview
 
@@ -74,8 +86,10 @@ These terms refer to different layers of the system and should not be treated
 as interchangeable:
 
 - `base model`
-  - the underlying local Granite instruct model from
+  - the shared local Granite foundation model from
     `models/granite-3.3-8b-instruct`
+  - it serves as the common base for adapter training, teacher-stage JSONL
+    generation, runtime generation, and verifier-backed workflows
 - `adapter`
   - LoRA weights trained on top of the base model
   - `general adapter` captures broad cybersecurity teaching style
@@ -657,31 +671,41 @@ python -m runtime.app.cli rubric --model-profile teacher "Focus on beginner-frie
 
 ## Difference from the Reference Paper
 
-The reference paper appears to use an SLM-based teaching workflow, but it does
-not describe a public fine-tuning pipeline with LoRA or a released
-implementation. Because the system is not open-sourced, its detailed internal
-design is not fully visible from the outside.
+The reference paper is best understood as a local, privacy-preserving teaching
+framework centered on inference-time augmentation. Its emphasis is on local
+small-model deployment, RAG/CAG-based prompt construction, teacher-in-the-loop
+interaction, iterative refinement, and verifier-based safety control. In that
+framing, the core system strength comes from workflow design and contextual
+injection rather than from adapting model parameters to a teaching domain.
 
-This repository takes a different and more explicit design path:
+The paper itself also treats domain-specific fine-tuning and RLHF as future
+work, which suggests that its current contribution is not a training-centered
+personalization pipeline. That is the point where this repository deliberately
+extends the design.
 
-- it does not stop at using an SLM only for runtime generation
-- it builds a general cybersecurity education model first from David's module
-  corpus
-- it then builds a teacher-specific model on top of that general model instead
-  of adapting each teacher directly from scratch
-- it uses a separate teacher pipeline in which original teacher materials are
-  extracted, converted into teacher-stage JSONL, and then used for continued
-  fine-tuning
-- it makes the training stages and intermediate artifacts visible in the
-  repository, so the workflow can be inspected and reproduced
+This repository pushes the framework forward in a different direction:
 
-The practical rationale is that a teacher model should inherit a stable
-cybersecurity foundation before it learns course-specific teaching context. In
-this design, David's modules provide the shared cybersecurity base, while the
-teacher materials provide the course framing and instructional language. That
-gives the customized model a more unified starting point than a design that
-only applies an SLM to teacher materials without an explicit general
-fine-tuning stage.
+- it turns a prompt- and workflow-engineered local framework into an explicit
+  `training + retrieval + verification` pipeline
+- it first builds a reusable general cybersecurity teaching adapter from
+  David's module corpus
+- it then performs teacher-stage continuation so course-specific behavior is
+  partially learned into the model rather than supplied only through prompts
+- it keeps RAG, CAG, refinement, and verification, but reassigns them to
+  clearer roles: factual supplementation, contextual/style steering, iterative
+  adjustment, and output checking
+- it preserves intermediate datasets, adapters, and run artifacts so the full
+  adaptation path is inspectable and reproducible
+
+The practical rationale is that retrieval can help a model see teacher
+materials during a single run, but retrieval alone does not guarantee stable
+long-horizon adherence to a teacher's terminology, task structure, or
+instructional preferences. In this design, David's modules provide the shared
+cybersecurity base, teacher materials provide course-specific alignment, and
+runtime augmentation remains valuable without being the only mechanism that
+controls behavior. The result is a more stable and transferable personalization
+path than a framework that depends mainly on injecting context at inference
+time.
 
 ## Supporting Documents
 
