@@ -199,12 +199,12 @@ Current workflow:
   - normalized text blocks extracted from teacher materials
 - `data/teachers/sql101/processed/`
   - teacher-stage train/eval JSONL
-- `data/eval/`
-  - evaluation and benchmark data
 - `runtime/`
   - runtime CLI, RAG, CAG, workflow, verifier
 - `training/`
   - LoRA training, inference, and data-build scripts
+- `evaluation/`
+  - prompt parsing, source lookup, hard-rule checks, LLM-assisted evaluation, and batch evaluation scripts
 - `runs/`
   - runtime, training, and comparison artifacts
 
@@ -406,6 +406,117 @@ materials. In the current design, the `teacher` model profile retrieves from
 the teacher collection first and then falls back to the general collection if
 it needs additional context.
 
+## Evaluation
+
+This repository now includes a lightweight evaluation pipeline built around two
+parts:
+
+- hard-rule evaluation
+  - checks prompt-visible constraints such as length, sentence count, dialogue
+    format, and basic task shape
+- LLM-assisted evaluation
+  - uses the local 8B model to judge prompt match, source learning, and
+    teaching usefulness
+
+The current evaluation implementation lives under `evaluation/`:
+
+- `evaluation/prompt_parser.py`
+  - extracts explicit constraints and retrieval terms from prompts
+- `evaluation/source_locator.py`
+  - searches source material in `generated_modules/21 Modules/` or
+    `data/teachers/`
+- `evaluation/hard_rules.py`
+  - runs deterministic format and structure checks
+- `evaluation/llm_judge.py`
+  - runs the local 8B model as a constrained JSON judge
+- `evaluation/run_eval.py`
+  - evaluates one existing output
+- `evaluation/batch_run.py`
+  - generates and evaluates prompt batches
+- `evaluation/batch_compare.py`
+  - runs shared-prompt comparisons between the general and teacher models
+- `evaluation/prompts/cybersecurity_prompts.jsonl`
+  - 5 prompts for the general cybersecurity model
+- `evaluation/prompts/teacher_prompts.jsonl`
+  - 5 prompts for the teacher-customized model
+- `evaluation/prompts/comparison_prompts.jsonl`
+  - 5 shared prompts for direct general-vs-teacher comparison
+
+The Chinese design note for this evaluation workflow is:
+
+- `docs/evaluation_plan_zh.md`
+
+Single-output evaluation example for the general cybersecurity model:
+
+```bash
+python training/infer_with_adapter.py \
+  --adapter runs/20260313_140305_general_train/adapter \
+  --prompt "Write a beginner-friendly lesson for module_008: ArrayOS AG DesktopDirect Real Exploit. Explain the main security issue and why it matters. Keep the response within 3-6 sentences." \
+  --out runs/eval_single/cyber_C4.md \
+  --save_prompt
+
+python -m evaluation.run_eval \
+  --model-type cybersecurity_eval \
+  --prompt "Write a beginner-friendly lesson for module_008: ArrayOS AG DesktopDirect Real Exploit. Explain the main security issue and why it matters. Keep the response within 3-6 sentences." \
+  --output-file runs/eval_single/cyber_C4.md \
+  --save-json runs/eval_single/cyber_C4_eval.json
+```
+
+Single-output evaluation example for the teacher-customized model:
+
+```bash
+python -m runtime.app.cli lesson \
+  --model-profile teacher \
+  "Write a beginner-friendly lesson for Aggregating Data. Keep the answer within 3-6 sentences and make it suitable for a database course."
+```
+
+Batch evaluation commands:
+
+```bash
+python -m evaluation.batch_run --target cybersecurity
+python -m evaluation.batch_run --target teacher
+python -m evaluation.batch_run --target all
+```
+
+Batch outputs are written under:
+
+- `runs/batch_eval/cybersecurity/generated/`
+- `runs/batch_eval/cybersecurity/results/`
+- `runs/batch_eval/teacher/generated/`
+- `runs/batch_eval/teacher/results/`
+
+For fair model-to-model comparison, use the shared comparison prompt set:
+
+```bash
+python -m evaluation.batch_compare
+```
+
+This command runs the same 5 prompts through:
+
+- the general cybersecurity model
+- the teacher-customized model
+
+and then evaluates both outputs with the same evaluation pipeline.
+
+Comparison outputs are written under:
+
+- `runs/compare_eval/general/`
+- `runs/compare_eval/teacher/`
+- `runs/compare_eval/results/`
+
+The main comparison summary is:
+
+- `runs/compare_eval/results/summary.json`
+
+Each per-prompt comparison record stores:
+
+- the shared prompt
+- the general output path
+- the teacher output path
+- the teacher runtime `run_id`
+- both evaluation results
+- the score delta `teacher_minus_general`
+
 ## Stage 1: General Adapter Training
 
 This stage creates the general cybersecurity education model from David's
@@ -579,54 +690,6 @@ Case-study pipeline:
 This case study is intended as a concrete showcase of how the pipeline works
 end-to-end, even though output quality can still be improved in later
 iterations.
-
-## Before/After Comparison
-
-Comparison prompt:
-
-```text
-Write a classroom handout for an introductory database lecture on querying data.
-
-Security focus: SQL injection prevention.
-
-Requirements:
-- Output only the final handout.
-- Do not write a conversation.
-- Do not include role labels such as user, assistant, or system.
-- Keep the material aligned to a database course, not a general cybersecurity lecture.
-- Use clear beginner-friendly language.
-- Emphasize defensive security practices only.
-
-Use exactly these sections:
-1. Overview
-2. Querying Data Concepts
-3. Security Connection
-4. One Example
-5. One Practice Question
-```
-
-Reference outputs:
-- general adapter:
-  - `runs/general_before_teacher.md`
-- teacher adapter:
-  - `runs/20260305_120655_teacher_train/inference/sql101_after_teacher.md`
-
-Observed result summary:
-- The general adapter preserved cybersecurity framing, but it stayed broad and
-  repetitive, and it did not strongly align to the structure of a database
-  lecture.
-- The teacher adapter followed the requested numbered handout structure more
-  closely and included more explicit SQL-class language such as `SELECT`,
-  parameterized queries, and classroom practice framing.
-- The teacher adapter also showed a quality issue: it overgenerated extra
-  assessment-style content after the requested sections, which suggests that the
-  teacher-stage data improved course alignment but still needs tighter output
-  control.
-
-This comparison supports the main experimental claim:
-- teacher-stage continuation can make the model more course-aware
-- but the current customization pipeline still needs tighter generation control
-  to avoid format drift
 
 ## Testing Runtime Profile Switching
 

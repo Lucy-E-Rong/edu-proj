@@ -160,7 +160,6 @@ class Orchestrator:
             base_text = rubric_source_text or self.memory.latest_practice
             if not base_text:
                 latest_practice_path = Path(self.config["output"]["runs_dir"]) / "latest_practice.txt"
-                legacy_practice_path = Path(self.config["output"]["runs_dir"]) / "latest_exercise.txt"
                 if latest_practice_path.exists():
                     base_text = latest_practice_path.read_text(encoding="utf-8").strip()
                 elif legacy_practice_path.exists():

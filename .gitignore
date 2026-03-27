@@ -10,7 +10,7 @@ __pycache__/
 
 # Data and artifacts
 #data/
-#runs/
+runs/
 chroma/
 models/
 generated_modules/

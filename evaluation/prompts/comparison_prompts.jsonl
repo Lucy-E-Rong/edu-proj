@@ -1,0 +1,5 @@
+{"id":"P1","task":"lesson","prompt":"Write a beginner-friendly lesson on SQL injection prevention for students in an introductory database course. Keep the response within 3-6 sentences. Do not write as dialogue."}
+{"id":"P2","task":"practice","prompt":"Write a short classroom practice activity on parameterized queries for beginner database students. Include one task and one short answer. Keep the response under 300 characters."}
+{"id":"P3","task":"incident","prompt":"Write an incident-style explanation of unsafe SQL query construction in a database course context. Focus on the risk, why it matters, and one defensive mitigation idea. Keep it concise."}
+{"id":"P4","task":"lesson","prompt":"Write a beginner-friendly lesson on aggregating data with security awareness in a database course. Keep the response within 3-6 sentences and make it suitable for direct student reading."}
+{"id":"P5","task":"practice","prompt":"Write a short classroom practice on filtering query results securely. Include one short exercise and one short answer. Do not write as dialogue."}

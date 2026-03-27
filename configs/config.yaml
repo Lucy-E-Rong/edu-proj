@@ -11,10 +11,10 @@ runtime:
       adapter_path: null
       description: "Base Granite instruct model with no LoRA adapter."
     general:
-      adapter_path: "runs/20260227_194005_general_train/adapter"
-      description: "Base model plus the general cybersecurity teaching adapter."
+      adapter_path: "runs/20260313_140305_general_train/adapter"
+      description: "Base model plus the cybersecurity adapter."
     teacher:
-      adapter_path: "runs/20260305_120655_teacher_train/adapter"
+      adapter_path: "runs/20260313_142348_teacher_train/adapter"
       description: "Base model plus the teacher-customized adapter."
 
 rag:

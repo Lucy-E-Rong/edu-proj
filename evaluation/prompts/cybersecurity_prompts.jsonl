@@ -1,0 +1,5 @@
+{"id":"C1","task":"lesson","prompt":"Write a beginner-friendly lesson for module_001 on secure input validation. Keep the response within 3-6 sentences. Do not write as dialogue."}
+{"id":"C2","task":"incident","prompt":"Write a short incident-style explanation for module_001 about the vulnerability and its security impact. Keep the response under 300 characters. Output only the final answer."}
+{"id":"C3","task":"practice","prompt":"Write a classroom practice activity for module_002. Include one short task and one short follow-up question. Keep it concise and suitable for beginner students."}
+{"id":"C4","task":"lesson","prompt":"Write a beginner-friendly lesson for module_008: ArrayOS AG DesktopDirect Real Exploit. Explain the main security issue and why it matters. Keep the response within 3-6 sentences."}
+{"id":"C5","task":"incident","prompt":"Write an incident-style cybersecurity briefing for module_004. Focus on the vulnerable behavior, the main risk, and one mitigation direction. Keep it concise."}

@@ -1,0 +1,5 @@
+{"id":"T1","task":"lesson","prompt":"Write a beginner-friendly lesson for Aggregating Data. Keep the answer within 3-6 sentences and make it suitable for a database course."}
+{"id":"T2","task":"practice","prompt":"Write a short classroom practice for Aggregating Data. Include one exercise and one short answer. Keep the response under 300 characters."}
+{"id":"T3","task":"lesson","prompt":"Write a beginner-friendly lesson for SQL joins. Explain the concept clearly for students in a database course. Do not write as dialogue."}
+{"id":"T4","task":"incident","prompt":"Write an incident-style explanation that connects SQL injection prevention to database query construction. Keep it concise and classroom-appropriate."}
+{"id":"T5","task":"practice","prompt":"Write a classroom practice activity for parameterized queries. Include one short task and one short follow-up question. Keep the language suitable for beginner students."}
