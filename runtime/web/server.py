@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -99,6 +100,27 @@ def _save_session(session: Dict[str, Any]) -> None:
     path.write_text(json.dumps(session, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def _run_logged_command(command: List[str], job: Dict[str, Any]) -> None:
+    env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    process = subprocess.Popen(
+        command,
+        cwd=REPO_ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        bufsize=1,
+        env=env,
+    )
+    assert process.stdout is not None
+    for line in process.stdout:
+        stripped = line.rstrip()
+        if stripped:
+            job["log"].append(stripped)
+    return_code = process.wait()
+    if return_code != 0:
+        raise RuntimeError(f"Command failed with exit code {return_code}: {' '.join(command)}")
+
+
 def _run_job(job_id: str, adapter_name: str, description: str, source_files: List[str]) -> None:
     job = JOBS[job_id]
 
@@ -151,6 +173,7 @@ def _run_job(job_id: str, adapter_name: str, description: str, source_files: Lis
                 str(train_out),
                 "--eval-file",
                 str(eval_out),
+                "--drop-invalid",
             ],
             [
                 sys.executable,
@@ -171,13 +194,7 @@ def _run_job(job_id: str, adapter_name: str, description: str, source_files: Lis
         job["status"] = "running"
         for command in commands:
             log("$ " + " ".join(command))
-            completed = subprocess.run(command, cwd=REPO_ROOT, text=True, capture_output=True)
-            if completed.stdout:
-                log(completed.stdout.strip())
-            if completed.stderr:
-                log(completed.stderr.strip())
-            if completed.returncode != 0:
-                raise RuntimeError(f"Command failed with exit code {completed.returncode}: {' '.join(command)}")
+            _run_logged_command(command, job)
 
         adapter_path = ""
         for line in reversed(job["log"]):

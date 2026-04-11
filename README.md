@@ -324,7 +324,7 @@ http://127.0.0.1:8010
 ```
 
 Notes:
-- replace `gpu013` and 'jobid'with the actual GPU node currently running your Web server
+- replace `gpu013` or 'jobid'with the actual GPU node currently running your Web server
 - the Web server must stay running on the GPU node while you use the local URL
 - if you only want to use the terminal workflow, the CLI remains fully
   available under `runtime/app/cli.py`

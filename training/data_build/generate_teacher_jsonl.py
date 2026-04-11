@@ -14,6 +14,7 @@ SKIP_SECTION_TERMS = {
     "exercises and solutions",
     "conclusion",
 }
+MIN_ASSISTANT_CHARS = 60
 
 
 def _read_jsonl(path: Path) -> List[Dict[str, object]]:
@@ -61,11 +62,21 @@ def _make_sample(
     }
 
 
+def _is_valid_generated_item(item: Dict[str, Any]) -> bool:
+    user = str(item.get("user", "")).strip()
+    assistant = str(item.get("assistant", "")).strip()
+    if not user or not assistant:
+        return False
+    return len(assistant) >= MIN_ASSISTANT_CHARS
+
+
 def _build_model_prompt(row: Dict[str, object]) -> str:
     return (
         "You are building teacher-stage supervised fine-tuning data for a small language model.\n"
         "Input is a course material excerpt. Output must be strict JSON: a list of 2 or 3 objects.\n"
         "Each object must include keys: task_type, user, assistant.\n"
+        "The assistant value must be a complete teaching response, not a question, "
+        f"and must be at least {MIN_ASSISTANT_CHARS} characters long.\n"
         "Goals:\n"
         "- keep the course context faithful to the source material\n"
         "- connect the material to defensive cybersecurity teaching where appropriate\n"
@@ -112,6 +123,8 @@ def _generate_model_samples(row: Dict[str, object], model: object) -> List[Dict[
     payload = _extract_json_list(raw)
     out: List[Dict[str, object]] = []
     for item in payload:
+        if not _is_valid_generated_item(item):
+            continue
         out.append(
             _make_sample(
                 row,
@@ -122,6 +135,8 @@ def _generate_model_samples(row: Dict[str, object], model: object) -> List[Dict[
                 str(item["assistant"]),
             )
         )
+    if not out:
+        raise ValueError("No valid teacher-stage samples found in generated JSON.")
     return out
 
 

@@ -22,6 +22,12 @@ def _read_jsonl(path: Path) -> List[Dict[str, object]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def _write_jsonl(path: Path, rows: List[Dict[str, object]]) -> None:
+    with path.open("w", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
 def _validate_row(idx: int, row: Dict[str, object]) -> List[str]:
     errors: List[str] = []
     missing = REQUIRED_TOP_LEVEL - set(row.keys())
@@ -51,21 +57,40 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Validate teacher-stage JSONL format")
     parser.add_argument("--train-file", required=True)
     parser.add_argument("--eval-file", required=True)
+    parser.add_argument(
+        "--drop-invalid",
+        action="store_true",
+        help="Drop invalid rows in-place instead of failing validation.",
+    )
     args = parser.parse_args()
 
     errors: List[str] = []
     for label, path_str in [("train", args.train_file), ("eval", args.eval_file)]:
-        rows = _read_jsonl(Path(path_str))
+        path = Path(path_str)
+        rows = _read_jsonl(path)
         if not rows:
             errors.append(f"{label}: file is empty")
             continue
+        valid_rows: List[Dict[str, object]] = []
         for idx, row in enumerate(rows, start=1):
-            errors.extend(_validate_row(idx, row))
+            row_errors = _validate_row(idx, row)
+            if row_errors:
+                if args.drop_invalid:
+                    for err in row_errors:
+                        print(f"{label}: dropping invalid {err}")
+                else:
+                    errors.extend(row_errors)
+            else:
+                valid_rows.append(row)
+        if args.drop_invalid and len(valid_rows) != len(rows):
+            _write_jsonl(path, valid_rows)
+            print(f"{label}: dropped {len(rows) - len(valid_rows)} invalid rows")
 
     if errors:
         for err in errors:
             print(err)
-        raise SystemExit(1)
+        if not args.drop_invalid:
+            raise SystemExit(1)
 
     print("Teacher JSONL validation passed.")
 
