@@ -5,7 +5,7 @@ import json
 import random
 import re
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 SKIP_SECTION_TERMS = {
     "table of contents",
@@ -78,6 +78,29 @@ def _build_model_prompt(row: Dict[str, object]) -> str:
     )
 
 
+def _extract_json_list(raw: str) -> List[Dict[str, Any]]:
+    decoder = json.JSONDecoder()
+    for idx, char in enumerate(raw):
+        if char != "[":
+            continue
+        try:
+            payload, _ = decoder.raw_decode(raw[idx:])
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, list):
+            continue
+        out: List[Dict[str, Any]] = []
+        for item in payload:
+            if not isinstance(item, dict):
+                raise ValueError("Generated JSON list contains a non-object item.")
+            missing = {"task_type", "user", "assistant"} - set(item)
+            if missing:
+                raise ValueError(f"Generated JSON item missing keys: {sorted(missing)}")
+            out.append(item)
+        return out
+    raise ValueError("No valid JSON list found in model output.")
+
+
 def _generate_model_samples(row: Dict[str, object], model: object) -> List[Dict[str, object]]:
     unit_title, section_title = _split_section_path(str(row["section_path"]))
     raw = model.generate(
@@ -86,9 +109,7 @@ def _generate_model_samples(row: Dict[str, object], model: object) -> List[Dict[
         temperature=0.2,
         do_sample=False,
     )
-    start = raw.find("[")
-    end = raw.rfind("]")
-    payload = json.loads(raw[start : end + 1])
+    payload = _extract_json_list(raw)
     out: List[Dict[str, object]] = []
     for item in payload:
         out.append(
@@ -124,6 +145,12 @@ def _write_jsonl(path: Path, rows: List[Dict[str, object]]) -> None:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
+def _append_jsonl(path: Path, row: Dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate teacher-stage train/eval JSONL from extracted teacher corpus")
     parser.add_argument("--extracted-file", required=True)
@@ -157,8 +184,29 @@ def main() -> None:
     )
 
     samples: List[Dict[str, object]] = []
-    for row in input_rows:
-        generated = _generate_model_samples(row, model)
+    failed_out = Path(args.train_out).parent / "failed_generation.jsonl"
+    if failed_out.exists():
+        failed_out.unlink()
+
+    for idx, row in enumerate(input_rows, start=1):
+        print(
+            f"Generating teacher samples {idx}/{len(input_rows)}: {row.get('section_path')}",
+            flush=True,
+        )
+        try:
+            generated = _generate_model_samples(row, model)
+        except Exception as exc:
+            _append_jsonl(
+                failed_out,
+                {
+                    "course_id": row.get("course_id"),
+                    "source_file": row.get("source_file"),
+                    "section_path": row.get("section_path"),
+                    "error": str(exc),
+                },
+            )
+            print(f"Skipped row {idx}: {exc}", flush=True)
+            continue
         samples.extend(generated)
 
     if not samples:
@@ -171,6 +219,8 @@ def main() -> None:
     print(f"Generated samples: {len(samples)}")
     print(f"Train rows: {len(train_rows)} -> {args.train_out}")
     print(f"Eval rows: {len(eval_rows)} -> {args.eval_out}")
+    if failed_out.exists():
+        print(f"Failed rows logged to: {failed_out}")
 
 
 if __name__ == "__main__":

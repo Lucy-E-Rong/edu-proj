@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import subprocess
 from pathlib import Path
 from typing import Dict, Iterable, List
 
@@ -18,18 +17,18 @@ def _read_text_file(path: Path) -> str:
 
 
 def _extract_pdf_text(path: Path) -> str:
-    tool = subprocess.run(["bash", "-lc", "command -v pdftotext"], capture_output=True, text=True)
-    if tool.returncode != 0 or not tool.stdout.strip():
+    try:
+        from pypdf import PdfReader
+    except ImportError:
         return ""
 
-    proc = subprocess.run(
-        ["pdftotext", str(path), "-"],
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
+    try:
+        reader = PdfReader(str(path))
+        page_texts = [(page.extract_text() or "").strip() for page in reader.pages]
+    except Exception:
         return ""
-    return proc.stdout
+
+    return "\n\n".join(text for text in page_texts if text)
 
 
 def _split_markdown_sections(text: str) -> List[Dict[str, str]]:
@@ -59,6 +58,41 @@ def _split_markdown_sections(text: str) -> List[Dict[str, str]]:
             }
         )
     return sections
+
+
+def _split_plain_text_blocks(text: str, max_chars: int = 3200) -> List[Dict[str, str]]:
+    paragraphs = [part.strip() for part in re.split(r"\n{2,}", text) if part.strip()]
+    if not paragraphs:
+        return []
+
+    blocks: List[Dict[str, str]] = []
+    current: List[str] = []
+    current_len = 0
+
+    for paragraph in paragraphs:
+        next_len = current_len + len(paragraph) + (2 if current else 0)
+        if current and next_len > max_chars:
+            blocks.append(
+                {
+                    "section_path": f"Document / Block {len(blocks) + 1:03d}",
+                    "text": "\n\n".join(current),
+                }
+            )
+            current = []
+            current_len = 0
+
+        current.append(paragraph)
+        current_len += len(paragraph) + (2 if current_len else 0)
+
+    if current:
+        blocks.append(
+            {
+                "section_path": f"Document / Block {len(blocks) + 1:03d}",
+                "text": "\n\n".join(current),
+            }
+        )
+
+    return blocks
 
 
 def _normalize_text(text: str) -> str:
@@ -91,7 +125,7 @@ def build_extracted_rows(source_dir: Path, course_id: str) -> List[Dict[str, obj
             raw_text = _extract_pdf_text(path)
             if not raw_text.strip():
                 extraction_status = "skipped"
-                extraction_note = "pdftotext unavailable or extraction failed"
+                extraction_note = "pypdf unavailable or PDF text extraction failed"
         else:
             continue
 
@@ -113,7 +147,7 @@ def build_extracted_rows(source_dir: Path, course_id: str) -> List[Dict[str, obj
         sections = (
             _split_markdown_sections(cleaned)
             if suffix in TEXT_EXTS
-            else [{"section_path": "Document", "text": cleaned}]
+            else _split_plain_text_blocks(cleaned)
         )
         for section in sections:
             text = _normalize_text(section["text"])

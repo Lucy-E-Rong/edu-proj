@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 from core.config import load_config
-from runtime.rag.ingest import  ingest_markdown_corpus, ingest_textbook
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,6 +36,11 @@ def build_parser() -> argparse.ArgumentParser:
             default="teacher",
             help="Runtime generator profile: base model only, general adapter, or teacher adapter.",
         )
+        cmd.add_argument(
+            "--teacher-review",
+            action="store_true",
+            help="Enable evaluator scoring plus teacher score correction during refinement.",
+        )
 
     inc = sub.add_parser("incident", help="Generate an incident-style cybersecurity briefing")
     inc.add_argument("prompt", type=str, help="Incident generation request prompt")
@@ -68,6 +72,8 @@ def main() -> None:
     cfg = load_config("configs/config.yaml")
 
     if args.command == "ingest":
+        from runtime.rag.ingest import ingest_markdown_corpus, ingest_textbook
+
         collection_name = cfg["rag"]["collections"][args.collection]
         if args.source_glob:
             count = ingest_markdown_corpus(
@@ -115,6 +121,7 @@ def main() -> None:
             task_type="generate_incident",
             user_prompt=args.prompt,
             use_rag=not args.no_rag,
+            teacher_review=args.teacher_review,
         )
     elif args.command == "lesson":
         from runtime.workflow.orchestrator import Orchestrator
@@ -124,6 +131,7 @@ def main() -> None:
             task_type="generate_lesson",
             user_prompt=args.prompt,
             use_rag=not args.no_rag,
+            teacher_review=args.teacher_review,
         )
     elif args.command == "practice":
         from runtime.workflow.orchestrator import Orchestrator
@@ -133,6 +141,7 @@ def main() -> None:
             task_type="generate_practice",
             user_prompt=args.prompt,
             use_rag=not args.no_rag,
+            teacher_review=args.teacher_review,
         )
     elif args.command == "rubric":
         from runtime.workflow.orchestrator import Orchestrator
@@ -143,6 +152,7 @@ def main() -> None:
             user_prompt=args.prompt,
             rubric_source_text=args.practice_text or None,
             use_rag=False,
+            teacher_review=args.teacher_review,
         )
     else:
         raise ValueError(f"Unknown command: {args.command}")

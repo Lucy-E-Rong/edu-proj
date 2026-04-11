@@ -259,6 +259,76 @@ huggingface-cli download ibm-granite/granite-3.3-8b-instruct \
   --local-dir models/granite-3.3-8b-instruct
 ```
 
+## Web Interface
+
+This repository also includes a lightweight Web UI that mirrors the core CLI
+workflow in a more teacher-facing form.
+
+The current Web UI supports two main flows:
+
+1. `Create Teacher Adapter`
+   - teacher enters a custom adapter name
+   - uploads course materials
+   - supported upload types are currently:
+     - `.md`
+     - `.txt`
+     - `.pdf`
+   - the backend then runs:
+     - teacher extraction
+     - teacher JSONL generation
+     - JSONL validation
+     - teacher adapter training
+
+2. `Teacher Chat`
+   - teacher selects from all currently available adapters via a dropdown
+   - this includes:
+     - `base`
+     - `general`
+     - `teacher`
+     - any user-created adapters registered through the Web UI
+   - teacher enters a prompt for:
+     - `lesson`
+     - `practice`
+     - `incident`
+     - `rubric`
+   - the system generates an answer
+   - the evaluator automatically scores it
+   - the teacher can correct the evaluator scores and provide refinement
+     feedback
+   - the system then revises the answer for up to two rounds
+
+### Opening the Web UI Locally
+
+If the project is running on a school server or GPU node, the easiest way to
+open the Web UI in your local browser is:
+
+1. On the GPU node, activate the environment and start the Web server:
+
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn runtime.web.server:app --host 0.0.0.0 --port 8000
+```
+
+2. On your local machine, create an SSH tunnel through the login node:
+
+```bash
+ssh -N -i ~/.ssh/unity-privkey.key -L 8010:gpu013:8000 yrong_umassd_edu@login.unityhpc.org
+srun --jobid=55420802 --overlap --pty bash
+```
+
+3. Then open the Web UI in your local browser:
+
+```text
+http://127.0.0.1:8010
+```
+
+Notes:
+- replace `gpu013` and 'jobid'with the actual GPU node currently running your Web server
+- the Web server must stay running on the GPU node while you use the local URL
+- if you only want to use the terminal workflow, the CLI remains fully
+  available under `runtime/app/cli.py`
+
 Confirm `configs/config.yaml` points to the local model directory:
 
 ```yaml

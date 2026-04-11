@@ -8,8 +8,10 @@ from typing import Any, Dict, List, Optional
 
 from core.modeling import ChatModel, ModelSettings
 from core.prompt_builders import build_cag_prompt, build_rag_prompt
+from evaluation.run_eval import evaluate_output
 from runtime.cag.load_assets import load_cag_assets
 from runtime.rag.retrieve import retrieve, retrieve_teacher_first
+from runtime.review.teacher_review import collect_teacher_review
 from runtime.verifier.verifier import VerifierLLM
 
 
@@ -43,6 +45,7 @@ class Orchestrator:
         self.verifier_profile = verifier_profile
         self.generator_adapter_path = generator_settings.adapter_path
         self.verifier_adapter_path = verifier_settings.adapter_path
+        self._evaluation_judge = None
 
     def _model_settings_for_profile(self, profile: str) -> ModelSettings:
         model_cfg = self.config["model"]
@@ -104,6 +107,29 @@ class Orchestrator:
             "Suggestion: ask for a safer educational variant with non-operational detail."
         )
 
+    def _evaluation_model_type(self) -> str:
+        if self.model_profile == "teacher":
+            return "teacher_eval"
+        return "cybersecurity_eval"
+
+    def _evaluate_for_teacher_review(
+        self,
+        eval_prompt: str,
+        output_text: str,
+    ) -> Dict[str, Any]:
+        if self._evaluation_judge is None:
+            from evaluation.llm_judge import LLMJudge
+
+            self._evaluation_judge = LLMJudge(config_path="configs/config.yaml")
+
+        return evaluate_output(
+            model_type=self._evaluation_model_type(),
+            prompt=eval_prompt,
+            output_text=output_text,
+            config_path="configs/config.yaml",
+            judge=self._evaluation_judge,
+        )
+
     def _write_report(
         self,
         run_dir: Path,
@@ -111,6 +137,7 @@ class Orchestrator:
         prompt_used: str,
         output_text: str,
         verifier_result: Dict[str, Any],
+        teacher_review_trajectory: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
         report = run_dir / "report.md"
         chunks_block = "\n\n".join(
@@ -118,6 +145,9 @@ class Orchestrator:
         )
         if not chunks_block:
             chunks_block = "- none"
+        review_block = "[]"
+        if teacher_review_trajectory:
+            review_block = json.dumps(teacher_review_trajectory, indent=2, ensure_ascii=False)
 
         report.write_text(
             "# Run Report\n\n"
@@ -136,7 +166,9 @@ class Orchestrator:
             "## Output\n\n"
             f"```text\n{output_text}\n```\n\n"
             "## Verifier Result\n\n"
-            f"```json\n{json.dumps(verifier_result, indent=2)}\n```\n",
+            f"```json\n{json.dumps(verifier_result, indent=2)}\n```\n\n"
+            "## Teacher Review Trajectory\n\n"
+            f"```json\n{review_block}\n```\n",
             encoding="utf-8",
         )
 
@@ -146,12 +178,16 @@ class Orchestrator:
         user_prompt: str,
         use_rag: bool = False,
         rubric_source_text: Optional[str] = None,
+        teacher_review: bool = False,
+        interactive_refinement: bool = True,
     ) -> Dict[str, Any]:
         if task_type not in {"generate_incident", "generate_lesson", "generate_practice", "generate_rubric"}:
             raise ValueError(f"Unsupported task_type: {task_type}")
 
         run_dir = self._new_run_dir()
         trace_file = run_dir / "trace.jsonl"
+        teacher_review_trajectory: List[Dict[str, Any]] = []
+        raw_user_prompt = user_prompt
 
         retrieved = self._retrieve_context(user_prompt) if use_rag else []
         self.memory.last_retrieved_chunks = retrieved
@@ -162,14 +198,13 @@ class Orchestrator:
                 latest_practice_path = Path(self.config["output"]["runs_dir"]) / "latest_practice.txt"
                 if latest_practice_path.exists():
                     base_text = latest_practice_path.read_text(encoding="utf-8").strip()
-                elif legacy_practice_path.exists():
-                    base_text = legacy_practice_path.read_text(encoding="utf-8").strip()
             user_prompt = (
                 f"Create a concise grading rubric for this practice activity:\n{base_text}\n\n"
                 f"Additional constraints:\n{user_prompt}"
             )
 
         user_prompt = f"{self._task_instruction(task_type)}\n\nUser request:\n{user_prompt}"
+        eval_prompt = f"{task_type.replace('generate_', '')}: {raw_user_prompt}"
 
         style_guide, example = load_cag_assets()
         cag_prompt = build_cag_prompt(style_guide, example, user_prompt)
@@ -203,11 +238,32 @@ class Orchestrator:
         if verifier_result.get("action") == "block":
             current_output = self._safe_refusal(verifier_result)
             self._append_trace(trace_file, {"stage": "blocked_refusal", "output": current_output})
-        else:
+        elif interactive_refinement:
             for round_idx in range(1, 3):
-                feedback = input(
-                    f"Refinement round {round_idx}/2 - enter feedback (blank to accept): "
-                ).strip()
+                if teacher_review:
+                    evaluation_result = self._evaluate_for_teacher_review(eval_prompt, current_output)
+                    print(f"\nRefinement round {round_idx}/2")
+                    print(f"Automatic final_score: {evaluation_result.get('final_score')}")
+                    review = collect_teacher_review(evaluation_result)
+                    feedback = review["refinement_feedback"]
+                    review_record = {
+                        "round": round_idx,
+                        "output_before_feedback": current_output,
+                        "evaluation_result": evaluation_result,
+                        **review,
+                    }
+                    teacher_review_trajectory.append(review_record)
+                    self._append_trace(
+                        trace_file,
+                        {
+                            "stage": "teacher_review",
+                            **review_record,
+                        },
+                    )
+                else:
+                    feedback = input(
+                        f"Refinement round {round_idx}/2 - enter feedback (blank to accept): "
+                    ).strip()
                 if not feedback:
                     break
                 refine_prompt = (
@@ -231,6 +287,26 @@ class Orchestrator:
                         "output": current_output,
                     },
                 )
+                if teacher_review and teacher_review_trajectory:
+                    teacher_review_trajectory[-1]["output_after_feedback"] = current_output
+
+            if teacher_review:
+                final_evaluation = self._evaluate_for_teacher_review(eval_prompt, current_output)
+                teacher_review_trajectory.append(
+                    {
+                        "round": "final",
+                        "output_before_feedback": current_output,
+                        "evaluation_result": final_evaluation,
+                        "note": "Final automatic evaluation after refinement loop.",
+                    }
+                )
+                self._append_trace(
+                    trace_file,
+                    {
+                        "stage": "teacher_review_final_eval",
+                        "result": final_evaluation,
+                    },
+                )
 
         self.memory.conversation_history.append({"role": "user", "content": user_prompt})
         self.memory.conversation_history.append({"role": "assistant", "content": current_output})
@@ -249,6 +325,7 @@ class Orchestrator:
             prompt_used=effective_prompt,
             output_text=current_output,
             verifier_result=verifier_result,
+            teacher_review_trajectory=teacher_review_trajectory,
         )
 
         return {
@@ -256,6 +333,7 @@ class Orchestrator:
             "model_profile": self.model_profile,
             "output": current_output,
             "verifier": verifier_result,
+            "teacher_review_trajectory": teacher_review_trajectory,
             "memory": asdict(self.memory),
         }
     def _task_instruction(self, task_type: str) -> str:
